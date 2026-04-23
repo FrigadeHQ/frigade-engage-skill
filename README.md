@@ -1,6 +1,6 @@
-# frigade-engage
+# Frigade Engage — Claude Code Skill
 
-A Claude Code skill that lets developers build and manage [Frigade Engage](https://frigade.com/engage) flows — announcements, tours, checklists, forms, surveys, banners, cards, NPS — directly from the terminal, including end-to-end wiring into React and Next.js codebases.
+Build and manage [Frigade Engage](https://frigade.com/engage) onboarding flows — announcements, product tours, checklists, forms, surveys, banners, cards, NPS — from your terminal through Claude Code, with end-to-end wiring into React and Next.js codebases.
 
 **Status:** Pre-v1.
 
