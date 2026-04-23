@@ -1,0 +1,14 @@
+# Frigade flow YAML example
+# Type: BANNER
+# Source: demo-v2/src/lib/flow-details.ts (BANNER_FLOW_ID = 'flow_LrVN8xha') @ 82b68403
+# Demonstrates: minimal single-step banner with no primaryButton/secondaryButton —
+#   only the built-in close X dismisses it. Inline HTML <a> for a link inside the
+#   subtitle. Targeting ("show after another flow completes") lives on the outer
+#   flow record, not in this YAML — see reference/targeting-and-rules.md.
+#   Rendered via `<Frigade.Banner flowId="..." />`.
+steps:
+  - id: banner-announcement
+    title: You completed the tour!
+    subtitle: This is a Frigade banner that uses <a
+      href='https://docs.frigade.com/v2/platform/targeting' target='_blank'
+      style='color:#0171F8;'>targeting</a> to automatically show after the tour.

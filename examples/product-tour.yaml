@@ -1,0 +1,29 @@
+# Frigade flow YAML example
+# Type: TOUR
+# Source: demo-v2/src/lib/flow-details.ts (TOUR_FLOW_ID = 'flow_F0MP8vnI') @ 82b68403
+# Demonstrates: 3-step anchored tour with CSS selectors, omitted primaryButton on
+#   steps that complete via user interaction (advance by input or click on the anchored
+#   element), secondary outbound "Learn more" link with action: false, inline imageUri
+#   on the final step. Rendered via `<Frigade.Tour flowId="..." />`.
+steps:
+  - id: tour-step-one
+    title: This is a Frigade tour
+    subtitle: It can be customized to fit your brand, or built from the ground up
+      with your own UI components.
+    primaryButton:
+      title: Next
+    selector: "#demo-card-subtitle"
+  - id: tour-step-two
+    title: Tours can interact with user inputs
+    subtitle: Enter a number larger than 100 to advance to the next step of the tour.
+    secondaryButton:
+      title: Learn more
+      action: false
+      uri: https://docs.frigade.com/v2/component/tour
+      target: _blank
+    selector: "#stock-1"
+  - id: tour-step-three
+    imageUri: https://cdn.frigade.com/bde697dd-445e-4d70-a395-340096a97a29.png
+    title: Push the button
+    subtitle: Select the Medium (M) button to complete the final step of this tour.
+    selector: "#demo-button-group"

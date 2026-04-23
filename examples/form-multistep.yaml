@@ -1,0 +1,132 @@
+# Frigade flow YAML example
+# Type: FORM
+# Source: demo-v2/src/lib/flow-details.ts (FORM_FLOW_ID = 'flow_kTB2fci9') @ 82b68403
+# Demonstrates: multi-step form with visibility-based branching, flow.back secondary
+#   CTAs, radio / select / select-multiple / text / textarea field types, custom
+#   field types (`movie-typeahead`, `mandatory-video`, `custom-typeahead`) that
+#   resolve to app-registered React components, outbound "Visit docs" secondary
+#   button with action: false.
+# Note: the flow ID inside user.flowStepData('form-multistep', ...) must match the
+#   containing flow's slug/ID. If you clone this YAML into a new flow, replace
+#   'form-multistep' with your new flow's slug (or keep the generic slug if you
+#   create the flow with it). Numeric comparisons on flowStepData values are done
+#   as strings — see reference/targeting-and-rules.md.
+# Rendered via `<Frigade.Form flowId="..." />` or wrap with `as={Frigade.Dialog}`.
+steps:
+  - id: welcome
+    title: Forms
+    subtitle: Build powerful, native forms with Frigade. Flexible like Typeform, but
+      fully customizable and within your own product –&nbsp;not just iframes.
+    primaryButton:
+      title: Get started
+  - id: branching
+    title: Branching
+    subtitle: Frigade supports form branching based on user inputs. Try it yourself
+      by choosing an option below.
+    secondaryButton:
+      title: Back
+      action: flow.back
+    primaryButton:
+      title: Continue
+    fields:
+      - id: input
+        type: radio
+        required: true
+        options:
+          - label: "Show me a dropdown "
+            value: dropdown
+          - label: Show me a text input
+            value: text
+          - label: Show me a multi-select
+            value: multi
+  - id: choice-dropdown
+    title: Frigade has dropdown components
+    visibilityCriteria: user.flowStepData('form-multistep', 'branching', 'input') == 'dropdown'
+    secondaryButton:
+      title: Back
+      action: flow.back
+    primaryButton:
+      title: Next
+    fields:
+      - id: dropdown
+        type: select
+        label: Dropdown
+        required: true
+        options:
+          - label: One
+            value: one
+          - label: Two
+            value: two
+          - label: Three
+            value: three
+  - id: choice-text
+    title: Frigade has text components
+    visibilityCriteria: user.flowStepData('form-multistep', 'branching', 'input') == 'text'
+    secondaryButton:
+      title: Back
+      action: flow.back
+    primaryButton:
+      title: Next
+    fields:
+      - id: text
+        type: text
+        label: Text
+        required: true
+        placeholder: Write anything...
+  - id: choice-multi
+    title: Frigade has multi-select components
+    visibilityCriteria: user.flowStepData('form-multistep', 'branching', 'input') == 'multi'
+    secondaryButton:
+      title: Back
+      action: flow.back
+    primaryButton:
+      title: Next
+    fields:
+      - id: multi
+        type: select
+        multiple: true
+        label: Multi-select
+        required: true
+        options:
+          - label: One
+            value: one
+          - label: Two
+            value: two
+          - label: Three
+            value: three
+  - id: custom-components
+    title: Custom components
+    subtitle: Frigade supports embedding components within forms. This page of the
+      form is a custom component that talks to an external movie API and
+      populates the dropdown list dynamically.
+    secondaryButton:
+      title: Back
+      action: flow.back
+    primaryButton:
+      title: Continue
+    fields:
+      - id: movie-typeahead
+        type: movie-typeahead
+  - id: custom-components-video
+    title: Mandatory video
+    subtitle: Please watch the following video to continue
+    primaryButton:
+      title: Continue
+    fields:
+      - id: mandatory-video
+        required: true
+        type: mandatory-video
+  - id: contact-us
+    title: Learn more
+    subtitle: Visit our developer docs to see all Form options, or feel free to grab
+      time with our team to discuss your usecase.
+    secondaryButton:
+      title: Visit docs
+      action: false
+      uri: https://docs.frigade.com/v2/component/form
+      target: _blank
+    primaryButton:
+      title: Finish
+    fields:
+      - id: custom-typeahead
+        type: custom-typeahead

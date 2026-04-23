@@ -1,0 +1,16 @@
+# Frigade flow YAML example
+# Type: CARD
+# Source: demo-v2/src/lib/flow-details.ts (BANNER_CARD_FLOW_ID = 'flow_yupOQHJs') @ 82b68403
+# Demonstrates: inline single-step card highlighting a feature, explicit
+#   step.complete on the dismiss CTA (closes the card and marks the flow complete
+#   for analytics). The flow is registered server-side as CARD despite its variable
+#   name — rendered via `<Frigade.Card flowId="..." />`. Unlike modals, cards sit
+#   inside the product layout rather than overlaying it.
+steps:
+  - id: banner-announcement
+    title: Inline UI Components
+    subtitle: Frigade components like this banner and the below card sit within your
+      product, not on top of it.
+    primaryButton:
+      title: Hide
+      action: step.complete

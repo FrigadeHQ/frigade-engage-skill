@@ -1,0 +1,48 @@
+# Frigade flow YAML example
+# Type: CHECKLIST
+# Source: demo-v2/src/lib/flow-details.ts (CHECKLIST_FLOW_ID = 'flow_lSjFTcXz') @ 82b68403
+# Demonstrates: top-level title/subtitle with inline HTML anchor, explicit
+#   step.complete CTAs, mixed button/no-button steps (some completed programmatically
+#   via step.complete() handler), startCriteria gating step-three on a user property,
+#   outbound "Learn more" links with action: false + target: _blank. Rendered via
+#   `<Frigade.Checklist.Carousel flowId="..." />` (or `.Collapsible`, `.Default`).
+title: Getting started
+subtitle: Build effective onboarding checklists with Frigade <a
+  href='https://docs.frigade.com/v2/component/checklist/carousel'
+  target='_blank' style='color:#0171F8;'>pre-built UI</a> or custom components.
+steps:
+  - id: checklist-step-one
+    title: State Management
+    subtitle: Frigade automatically tracks and remembers completion statuses for
+      every user. Mark this step complete, then try closing and reopening this
+      tab in your browser.
+    primaryButton:
+      title: Mark complete
+      action: step.complete
+    secondaryButton:
+      title: Learn more
+      action: false
+      uri: https://frigade.com/engage
+      target: _blank
+  - id: checklist-step-two
+    title: Dynamic Completion
+    subtitle: Sometimes you want to mark a step complete after the user completes a
+      specific action. Frigade makes this easy. Complete this step by selecting
+      <strong>`User action`</strong> below.
+    secondaryButton:
+      title: Learn more
+      action: false
+      uri: https://docs.frigade.com/v2/sdk/advanced/completing-a-step
+      target: _blank
+  - id: checklist-step-three
+    title: Conditional Logic
+    subtitle: Add your own logic to automatically lock steps or mark them complete.
+      For example, complete the final step to unlock this step.
+    startCriteria: user.property('hasFinishedStepFour') == true
+    primaryButton:
+      title: Mark complete
+  - id: checklist-step-four
+    title: Native UI Components
+    subtitle: Style every part of our pre-built UI components to fit seamlessly in
+      your product, or build headless with our SDK. Write
+      <strong>native</strong> in the box below to complete this step.

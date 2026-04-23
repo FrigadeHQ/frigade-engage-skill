@@ -1,0 +1,27 @@
+# Frigade flow YAML example
+# Type: SURVEY (NPS variant)
+# Source: demo-v2/src/lib/flow-details.ts (NPS_FLOW_ID = 'flow_Gd8oTupY') @ 82b68403
+# Demonstrates: top-level `props.dismissible: true` for a closeable survey, two-step
+#   NPS flow (score -> open-ended follow-up), `type: nps` field with positive/negative
+#   labels, auto-advance on score selection (no primaryButton on page 1), textarea
+#   field with placeholder, implicit step.complete on Submit closes the flow.
+#   Rendered via `<Frigade.Survey flowId="..." />` or `<Frigade.NPSSurvey />`.
+props:
+  dismissible: true
+steps:
+  - id: nps-score-page
+    title: How likely are you to recommend us to a friend or colleague?
+    fields:
+      - id: nps-score
+        type: nps
+        label: NPS input field
+        positiveLabel: Extremely likely
+        negativeLabel: Not likely at all
+  - id: nps-feedback-page
+    title: Why did you choose this rating?
+    primaryButton:
+      title: Submit
+    fields:
+      - id: nps-feedback-text
+        type: textarea
+        placeholder: Your answer goes here

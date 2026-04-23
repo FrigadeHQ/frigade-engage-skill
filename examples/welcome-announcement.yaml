@@ -1,0 +1,24 @@
+# Frigade flow YAML example
+# Type: ANNOUNCEMENT
+# Source: demo-v2/src/lib/flow-details.ts (MODAL_FLOW_ID = 'flow_OMJL2QzR') @ 82b68403
+# Demonstrates: multi-page announcement wizard, imageUri per step, default step.complete
+#   on primary CTAs (advance -> finish), secondary outbound link with action: false +
+#   target: _blank. Rendered via `<Frigade.Announcement flowId="..." as={Frigade.Dialog} />`.
+steps:
+  - id: feature-announcement
+    title: This is a basic announcement
+    subtitle: It is a standard, non-styled version.
+    primaryButton:
+      title: Next
+    secondaryButton:
+      title: Learn more
+      uri: https://frigade.com/engage
+      target: _blank
+      action: false
+    imageUri: https://cdn.frigade.com/b7540f8f-1690-4234-b92b-adb9a42ebe36.svg
+  - id: feature-announcement-2
+    title: Announcements can be multi-page
+    subtitle: Check out the other variations on this page
+    primaryButton:
+      title: Finish
+    imageUri: https://cdn.frigade.com/3258935a-a150-46da-9026-54df34729b55.svg
