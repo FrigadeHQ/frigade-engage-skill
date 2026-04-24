@@ -2,8 +2,6 @@
 
 Build and manage [Frigade Engage](https://frigade.com/engage) onboarding flows — announcements, product tours, checklists, forms, surveys, banners, cards, NPS — from your terminal through Claude Code, with end-to-end wiring into React and Next.js codebases.
 
-**Status:** Pre-v1.
-
 ## What it does
 
 Once installed, you can ask Claude in your project:
@@ -23,36 +21,18 @@ Clone the repo into your Claude Code skills directory:
 git clone https://github.com/FrigadeHQ/frigade-engage-skill.git ~/.claude/skills/frigade-engage
 ```
 
-Or, if you're working on the skill itself, symlink your checkout:
-
-```sh
-git clone https://github.com/FrigadeHQ/frigade-engage-skill.git
-ln -s "$(pwd)/frigade-engage-skill" ~/.claude/skills/frigade-engage
-```
-
-Claude Code picks it up on the next session. The skill auto-activates when the user mentions Frigade, onboarding flows, product tours, checklists, collections, announcements, or in-product guides.
+Claude Code picks it up on the next session. The skill auto-activates when you mention Frigade, onboarding flows, product tours, checklists, collections, announcements, or in-product guides.
 
 ## First run
 
-The first time you ask Claude to do anything Frigade-related in a project, it runs `recipes/first-run-setup.md`:
+The first time you ask Claude to do anything Frigade-related in a project, the skill walks you through a one-time setup:
 
 1. Prompts you to paste your dev public + private API keys (from `app.frigade.com/settings/api`).
-2. Writes them to `.env.local` (creating it if needed), ensures `.gitignore` excludes it.
-3. Writes a `.frigade/project.json` marker binding the repo to your Frigade workspace (safe to commit).
+2. Writes them to `.env.local` (creating it if needed) and makes sure `.gitignore` excludes it.
+3. Binds the repo to your Frigade workspace via a committed `.frigade/project.json` marker.
 4. Verifies the keys work against the Frigade API.
 
-Prod keys are optional and only needed for prod-side ops or dev→prod promotion.
-
-## Repo layout
-
-```
-SKILL.md              — entry point (metadata + dispatch tables + hard rules)
-recipes/              — step-by-step playbooks for each user intent
-reference/            — API surface, SDK wiring, error handling
-examples/             — production-quality YAML examples per flow type
-tests/                — integration tests (local-only; see below)
-scripts/              — maintenance scripts (sweep leaked test flows)
-```
+Prod keys are optional and only needed for prod-side operations or dev→prod promotion.
 
 ## Framework support
 
@@ -68,28 +48,3 @@ scripts/              — maintenance scripts (sweep leaked test flows)
 - **Destructive ops** (`delete-flow`, `reset-user`, etc.) always confirm, regardless of environment.
 
 Full model in [`SKILL.md`](SKILL.md) § "Safety model summary" and [`reference/operations.md`](reference/operations.md).
-
-## Running the integration tests
-
-The repo ships with end-to-end integration tests (`tests/integration/`) that exercise the skill against a real Frigade test workspace. They're local-only — no CI.
-
-**Setup (one time):**
-
-1. Create a dedicated Frigade test workspace with both a dev and a prod organization.
-2. `cp .env.test.local.example .env.test.local`, then paste your `ANTHROPIC_API_KEY` and the four Frigade test keys.
-3. `npm install`
-
-**Run:**
-
-```sh
-npm test                        # all six test files
-npm run test:create             # create announcement + wire into Next.js
-npm run test:promote            # dev→prod promotion (flow)
-npm run test:delete             # delete dev flow (confirm required)
-npm run test:prod-confirm       # prod delete: decline + accept paths
-npm run test:targeting          # update targeting by user property
-npm run test:promote-collection # dev→prod promotion (collection)
-npm run test:sweep              # delete all TEST-prefixed flows in both envs
-```
-
-Tests use title-prefixed flows (`TEST-<stamp>-...`) so leaked flows are identifiable. Each test's `afterEach` deletes flows it created; `npm run test:sweep` is a safety net for crashed runs.
