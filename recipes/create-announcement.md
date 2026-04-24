@@ -158,7 +158,7 @@ BODY=$(jq -n \
   --arg data "$YAML_STRING" \
   '{slug: $slug, name: $name, type: "ANNOUNCEMENT", data: $data, active: true}')
 
-curl -sS -X POST "https://api3.frigade.com/v1/flows/" \
+curl -sS -X POST "https://api3.frigade.com/v1/flows" \
   -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
@@ -616,7 +616,7 @@ BODY=$(jq -n \
   --arg data "$YAML_STRING" \
   '{slug:$slug, name:$name, type:"ANNOUNCEMENT", data:$data, active:true}')
 
-curl -sS -X POST "https://api3.frigade.com/v1/flows/" \
+curl -sS -X POST "https://api3.frigade.com/v1/flows" \
   -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET" \
   -H "Content-Type: application/json" \
   -d "$BODY"

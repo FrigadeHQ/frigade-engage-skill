@@ -25,7 +25,7 @@ Safety tag: **safe** in both dev and prod. No confirmation prompt. Read-only.
 ## Minimal flow
 
 1. Parse `environment` (default `dev`) and any filter criteria: `type` (ANNOUNCEMENT/CHECKLIST/FORM/TOUR/SUPPORT/CUSTOM/BANNER/EMBEDDED_TIP/NPS_SURVEY/SURVEY/CARD), `active` (bool), free-text search on `name` or `slug`.
-2. `curl -sS "https://api3.frigade.com/v1/flows/" -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"`.
+2. `curl -sS "https://api3.frigade.com/v1/flows" -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"`.
 3. Parse `data: Flow[]` from the paginated response (`{ data, offset: 0, limit: 100 }` shape per `rest-endpoints.md`).
 4. Apply client-side filters (server doesn't filter by type/active; that happens here).
 5. Format a compact list — one row per flow with slug, type, active status, modifiedAt, short name. If the list is empty after filtering, say so explicitly rather than returning an empty block.

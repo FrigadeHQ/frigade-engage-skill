@@ -58,7 +58,7 @@ For the "all" phrasing, list dev flows whose latest-draft `modifiedAt` is more r
 ```bash
 # Dev-side list (note the trailing slash per rest-endpoints.md §"GET /v1/flows/")
 curl -sS -w "\n---HTTP_STATUS:%{http_code}---\n" \
-  "https://api3.frigade.com/v1/flows/" \
+  "https://api3.frigade.com/v1/flows" \
   -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"
 ```
 
@@ -235,7 +235,7 @@ BODY=$(jq -n \
   --arg targetingLogic "$TARGETING_LOGIC" \
   '{slug: $slug, name: $name, description: $description, type: $type, data: $data, codeSnippet: $codeSnippet, targetingLogic: $targetingLogic, active: false}')
 
-curl -sS -X POST "https://api3.frigade.com/v1/flows/" \
+curl -sS -X POST "https://api3.frigade.com/v1/flows" \
   -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET_PROD" \
   -H "Content-Type: application/json" \
   -d "$BODY" \

@@ -281,7 +281,7 @@ BODY=$(jq -n \
   --arg data "$YAML_STRING" \
   '{slug: $slug, name: $name, type: "TOUR", data: $data, active: true}')
 
-curl -sS -X POST "https://api3.frigade.com/v1/flows/" \
+curl -sS -X POST "https://api3.frigade.com/v1/flows" \
   -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET" \
   -H "Content-Type: application/json" \
   -d "$BODY" \
@@ -674,7 +674,7 @@ Log the `create-tour:partial-failure` event to `.frigade/skill.log`: step number
      --arg data "$YAML_STRING" \
      '{slug:$slug, name:$name, type:"TOUR", data:$data, active:true}')
 
-   curl -sS -X POST "https://api3.frigade.com/v1/flows/" \
+   curl -sS -X POST "https://api3.frigade.com/v1/flows" \
      -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET" \
      -H "Content-Type: application/json" \
      -d "$BODY"

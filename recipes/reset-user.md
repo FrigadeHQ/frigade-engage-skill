@@ -105,7 +105,7 @@ Before prompting, run the flow-listing call so the confirmation can report a con
 
 ```bash
 curl -sS -w "\n---HTTP_STATUS:%{http_code}---\n" \
-  "https://api3.frigade.com/v1/flows/" \
+  "https://api3.frigade.com/v1/flows" \
   -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"
 ```
 
