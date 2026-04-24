@@ -9,7 +9,9 @@
 
 - Every endpoint below requires a **private API key** (`api_private_*`) unless explicitly marked `(public-ok)` — those accept publishable keys (`api_public_*`) as well and are the ones the frontend SDK uses; you can still call them from the skill with a private key if you need to.
 - TypeScript-style notation is used for request/response shapes. Optional fields are marked `?`. Shapes mirror backend-app DTO classes (e.g. `CreateFlowDto`, `AddPropertyOrEventsToUserDTO`); `ExternalizedFoo` classes are the response payloads.
-- Every path shown is **appended to the base URL**. Nest fastify sets no global prefix; endpoints begin with `v1/...`. A request URL is therefore `{BASE_URL}{PATH}`, e.g. `https://api3.frigade.com/v1/flows/`.
+- Every path shown is **appended to the base URL**. Nest fastify sets no global prefix; endpoints begin with `v1/...`. A request URL is therefore `{BASE_URL}{PATH}`, e.g. `https://api3.frigade.com/v1/flows`.
+- **Trailing slashes matter on collection paths.** `GET /v1/flows` and `POST /v1/flows` are the correct paths (no trailing slash). Appending a trailing slash (`GET /v1/flows/`, `POST /v1/flows/`) returns `404 Not Found` from the Fastify router. Per-id paths (`GET /v1/flows/:id`, `PUT /v1/flows/:id`, `DELETE /v1/flows/:id`) are unaffected.
+- **`Content-Type` must be omitted on bodiless requests.** `DELETE /v1/flows/:id` with no body but `Content-Type: application/json` fails with `400 "Body cannot be empty when content-type is set to 'application/json'"`. Only set the content-type header when you actually send a JSON body.
 - The CORS policy on backend-app allows `GET / PUT / POST / DELETE / OPTIONS`. There are **no** `PATCH` endpoints — use `PUT` for partial updates too (yes, even though the body is partial; see `PUT /v1/flows/:numericFlowId`).
 - Auth guard mapping (from `src/middlewares/private-api.guard.ts` and `src/middlewares/public-api.guard.ts`):
   - `PrivateAuthGuard` — accepts (a) an `api_private_*` key, OR (b) a Clerk dashboard session token. The guard validates and sets `req.organization`. Public keys are rejected.
@@ -34,7 +36,7 @@
 
 ### GET /v1/public/flows — list flows for the org (public-ok)
 - Auth: `RateLimitGuard` + `PublicApiGuard`.
-- Response: `PaginatedResult<ExternalizedFlow>` — `{ data: ExternalizedFlow[], offset: 0, limit: 100 }`. Legacy JS SDK versions receive only `active: true` flows; newer versions get the full list. The skill should prefer `GET /v1/flows/` below for completeness.
+- Response: `PaginatedResult<ExternalizedFlow>` — `{ data: ExternalizedFlow[], offset: 0, limit: 100 }`. Legacy JS SDK versions receive only `active: true` flows; newer versions get the full list. The skill should prefer `GET /v1/flows` below for completeness.
 - Controller: `src/flows/flows.controller.ts:95-116`.
 - Curl template:
   ```bash
@@ -42,7 +44,7 @@
     -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"
   ```
 
-### GET /v1/flows/ — list flows (dashboard view, private)
+### GET /v1/flows — list flows (dashboard view, private)
 - Auth: `PrivateAuthGuard`.
 - Query params:
   - `startDate?: string` (ISO 8601). Optional. Scopes the returned `internalData.flowStats` to the time window.
@@ -53,7 +55,7 @@
 - Notes: The dashboard hits this for the Flows list with optional stats windowing. For the skill, calling without query params gets you the plain list.
 - Curl template:
   ```bash
-  curl -sS "https://api3.frigade.com/v1/flows/" \
+  curl -sS "https://api3.frigade.com/v1/flows" \
     -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"
   ```
 
@@ -82,7 +84,7 @@
     -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET"
   ```
 
-### POST /v1/flows/ — create flow (private)
+### POST /v1/flows — create flow (private)
 - Auth: `PrivateAuthGuard` + `SecureHeaders()`.
 - Body (`CreateFlowDto`):
   ```ts
@@ -103,7 +105,7 @@
 - Notes: The flow is created in **draft** status by default inside the organization bound to the API key. To activate, call `PUT /v1/flows/:id/activate`. The newly created flow gets `customerId` auto-set to the org's first customer if the actor (API key) doesn't have one.
 - Curl template:
   ```bash
-  curl -sS -X POST "https://api3.frigade.com/v1/flows/" \
+  curl -sS -X POST "https://api3.frigade.com/v1/flows" \
     -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET" \
     -H "Content-Type: application/json" \
     -d '{"name":"Welcome","type":"ANNOUNCEMENT","data":"steps:\n  - id: step_1\n    title: Welcome","active":true}'
