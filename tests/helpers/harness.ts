@@ -25,9 +25,14 @@ export interface ToolUse {
 }
 
 /**
- * A responder is called each time the assistant emits a text block.
- * Return a string to send as the next user message (mid-session response to a prompt).
- * Return null to not respond; the SDK will finish the current turn and the session will end.
+ * A responder is called once per assistant message, with all of that
+ * message's text blocks concatenated. (Earlier versions called it per-block,
+ * which made canonical-prompt matching unreliable when the skill split a
+ * prompt across adjacent text blocks.)
+ *
+ * Return a string to send as the next user message (mid-session response to
+ * a prompt). Return null to not respond; the session continues until the
+ * SDK ends the turn.
  */
 export type PromptResponder = (assistantText: string) => string | null;
 
@@ -93,22 +98,27 @@ export async function runSkill(opts: RunSkillOptions): Promise<RunSkillResult> {
     for await (const message of session) {
       debugLog({ t: Date.now(), kind: 'message', message });
       if (message.type === 'assistant') {
+        const messageTextBlocks: string[] = [];
         for (const block of message.message.content) {
           if (block.type === 'text') {
             const text = block.text;
             assistantText.push(text);
             finalResponse = text;
-            const response = opts.onPrompt(text);
-            debugLog({ t: Date.now(), kind: 'assistantText', text, response });
-            if (response !== null) {
-              queue.push(makeUserMessage(response));
-            }
+            messageTextBlocks.push(text);
           } else if (block.type === 'tool_use') {
             toolUses.push({
               name: block.name,
               input: (block.input ?? {}) as Record<string, unknown>,
             });
             debugLog({ t: Date.now(), kind: 'toolUse', name: block.name, input: block.input });
+          }
+        }
+        if (messageTextBlocks.length > 0) {
+          const joined = messageTextBlocks.join('\n');
+          const response = opts.onPrompt(joined);
+          debugLog({ t: Date.now(), kind: 'assistantText', text: joined, response });
+          if (response !== null) {
+            queue.push(makeUserMessage(response));
           }
         }
       } else if (message.type === 'result') {

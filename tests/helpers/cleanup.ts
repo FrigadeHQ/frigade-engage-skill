@@ -18,6 +18,10 @@ export class FlowTracker {
       try {
         await f.client.deleteFlow(f.id);
       } catch (e) {
+        // Tests may have already deleted the flow through the skill (the
+        // delete-flow and prod-delete-confirm happy paths do). The Frigade
+        // API returns 404 or 500 on double-delete. Swallow those silently.
+        if (e instanceof Error && /-> (404|500)/.test(e.message)) continue;
         console.warn(`Teardown failed for ${f.client.env}/${f.slug}:`, e);
       }
     }
