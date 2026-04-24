@@ -200,14 +200,44 @@ function createMessageQueue(): MessageQueue {
 
 // ---- helpers used by tests -------------------------------------------------
 
-export const CANONICAL_PROMPT = /^About to (.+?) in (dev|prod)\. Confirm\? \(y\/n\)$/m;
+// Canonical confirmation prompts per reference/operations.md. Two shapes are
+// documented:
+//   - Standard:  "About to <verb> <target> in <env>. Confirm? (y/n)"
+//   - Promotion: "About to promote flow(s) <slug list> from dev to prod.
+//                 Sequence: ... Confirm? (y/n)"
+// The skill may emit either form wrapped in markdown bold (`**...**`), so we
+// tolerate that. For promotion we also accept the short form
+// "About to promote <target> to prod. Confirm? (y/n)" which recipes/promote-
+// to-prod.md uses as its trailing one-line prompt after the multi-line batch
+// block.
+export const CANONICAL_PROMPT_STANDARD =
+  /^\**About to (.+?) in (dev|prod)\. Confirm\? \(y\/n\)\**$/m;
+// Promotion prompts are multi-line by nature — recipes/promote-to-prod.md
+// emits a multi-flow batch block, operations.md §195 documents a
+// "from dev to prod" one-liner, and the skill sometimes wraps either in a
+// single bolded "short canonical" line at the end. We accept any of these
+// shapes. Env is always `prod` for promotion (dev→prod direction).
+//   1. Recipe block: "About to promote flows to production:\n...\nConfirm? (y/n)"
+//   2. Operations.md one-liner: "About to promote <x> from dev to prod. ... Confirm? (y/n)"
+//   3. Short canonical: "About to promote <x> to prod. Confirm? (y/n)" (optionally **bold**)
+export const CANONICAL_PROMPT_PROMOTION_BLOCK =
+  /(?:^|\n)\**About to promote flows? to production[^]*?Confirm\? \(y\/n\)\**/;
+export const CANONICAL_PROMPT_PROMOTION_INLINE =
+  /(?:^|\n)\**About to (promote [^.\n]+?)(?: from dev)? to (prod)\.[\s\S]{0,400}?Confirm\? \(y\/n\)\**/;
+
+export const CANONICAL_PROMPT = CANONICAL_PROMPT_STANDARD;
 
 export function matchConfirmation(
   text: string,
 ): { verb: string; env: 'dev' | 'prod' } | null {
-  const m = text.match(CANONICAL_PROMPT);
-  if (!m) return null;
-  return { verb: m[1], env: m[2] as 'dev' | 'prod' };
+  const standard = text.match(CANONICAL_PROMPT_STANDARD);
+  if (standard) return { verb: standard[1], env: standard[2] as 'dev' | 'prod' };
+  const inline = text.match(CANONICAL_PROMPT_PROMOTION_INLINE);
+  if (inline) return { verb: inline[1], env: inline[2] as 'dev' | 'prod' };
+  if (CANONICAL_PROMPT_PROMOTION_BLOCK.test(text)) {
+    return { verb: 'promote', env: 'prod' };
+  }
+  return null;
 }
 
 export const KEY_PROMPT_PATTERNS: Array<{
