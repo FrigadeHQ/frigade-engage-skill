@@ -215,8 +215,11 @@ function createMessageQueue(): MessageQueue {
 //   - Standard:  "About to <verb> <target> in <env>. Confirm? (y/n)"
 //   - Promotion: "About to promote flow(s) <slug list> from dev to prod.
 //                 Sequence: ... Confirm? (y/n)"
-// The skill may emit either form wrapped in markdown bold (`**...**`), so we
-// tolerate that. For promotion we also accept the short form
+// The skill may emit either form wrapped in markdown bold (`**...**`) or
+// prefixed with a blockquote marker (`> `), so we tolerate both — seen in
+// practice, the skill sometimes renders destructive-op prompts as
+// blockquotes when the surrounding narration is richer. For promotion we
+// also accept the short form
 // "About to promote <target> to prod. Confirm? (y/n)" which recipes/promote-
 // to-prod.md uses as its trailing one-line prompt after the multi-line batch
 // block.
@@ -226,7 +229,7 @@ function createMessageQueue(): MessageQueue {
 // "...in dev. This cannot be undone. Confirm? (y/n)". We allow an optional
 // trailing context segment of up to ~400 chars so those prompts still match.
 export const CANONICAL_PROMPT_STANDARD =
-  /^\**About to (.+?) in (dev|prod)\.(?: [\s\S]{0,400}?)? Confirm\? \(y\/n\)\**$/m;
+  /^(?:> )?\**About to (.+?) in (dev|prod)\.(?: [\s\S]{0,400}?)? Confirm\? \(y\/n\)\**$/m;
 // Promotion prompts are multi-line by nature — recipes/promote-to-prod.md
 // emits a multi-flow batch block, operations.md §195 documents a
 // "from dev to prod" one-liner, and the skill sometimes wraps either in a
@@ -236,9 +239,9 @@ export const CANONICAL_PROMPT_STANDARD =
 //   2. Operations.md one-liner: "About to promote <x> from dev to prod. ... Confirm? (y/n)"
 //   3. Short canonical: "About to promote <x> to prod. Confirm? (y/n)" (optionally **bold**)
 export const CANONICAL_PROMPT_PROMOTION_BLOCK =
-  /(?:^|\n)\**About to promote flows? to production[^]*?Confirm\? \(y\/n\)\**/;
+  /(?:^|\n)(?:> )?\**About to promote flows? to production[^]*?Confirm\? \(y\/n\)\**/;
 export const CANONICAL_PROMPT_PROMOTION_INLINE =
-  /(?:^|\n)\**About to (promote [^.\n]+?)(?: from dev)? to (prod)\.[\s\S]{0,400}?Confirm\? \(y\/n\)\**/;
+  /(?:^|\n)(?:> )?\**About to (promote [^.\n]+?)(?: from dev)? to (prod)\.[\s\S]{0,400}?Confirm\? \(y\/n\)\**/;
 
 export const CANONICAL_PROMPT = CANONICAL_PROMPT_STANDARD;
 
