@@ -210,8 +210,13 @@ function createMessageQueue(): MessageQueue {
 // "About to promote <target> to prod. Confirm? (y/n)" which recipes/promote-
 // to-prod.md uses as its trailing one-line prompt after the multi-line batch
 // block.
+//
+// For dangerous operations (e.g. deleteFlow), the skill often appends extra
+// context sentences between the env marker and the confirm tail, like
+// "...in dev. This cannot be undone. Confirm? (y/n)". We allow an optional
+// trailing context segment of up to ~400 chars so those prompts still match.
 export const CANONICAL_PROMPT_STANDARD =
-  /^\**About to (.+?) in (dev|prod)\. Confirm\? \(y\/n\)\**$/m;
+  /^\**About to (.+?) in (dev|prod)\.(?: [\s\S]{0,400}?)? Confirm\? \(y\/n\)\**$/m;
 // Promotion prompts are multi-line by nature — recipes/promote-to-prod.md
 // emits a multi-flow batch block, operations.md §195 documents a
 // "from dev to prod" one-liner, and the skill sometimes wraps either in a
