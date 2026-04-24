@@ -1,8 +1,8 @@
 # create-collection
 
-**End-to-end create-a-collection recipe.** Takes the user's intent ("create a product-update collection and embed it in the app"), creates the collection in Frigade via the `createRule` GraphQL mutation, then installs `@frigade/react` if needed, wires the `<Frigade.Provider>`, and mounts `<Frigade.Collection>` in the host codebase. On partial failure (per **D16**), Frigade-side state is preserved and code-edit batches are rolled back atomically.
+**End-to-end create-a-collection recipe.** Takes the user's intent ("create a product-update collection and embed it in the app"), creates the collection in Frigade via the `createRule` GraphQL mutation, then installs `@frigade/react` if needed, wires the `<Frigade.Provider>`, and mounts `<Frigade.Collection>` in the host codebase. On partial failure, Frigade-side state is preserved and code-edit batches are rolled back atomically.
 
-Referenced decisions: **D02** (full dashboard parity — collections are part of it), **D04** (end-to-end wiring, not just "collection created" success), **D07** (public key only in client code; private key only in `.env.local` → `Authorization`), **D09/D23** (per-env safety tags per `operations.md`), **D14** (ask before starting dev server), **D16** (atomic code edits, preserved upstream state on partial failure), **D17** (log to `.frigade/skill.log`), **D21** (`.gitignore` hygiene), **D28** (403 = bad key, 401 = ownership), **D31** (collections are called `Rule` in GraphQL; customer-facing language is always "collection").
+Note on naming: collections are called `Rule` in GraphQL; customer-facing language is always "collection".
 
 Companion refs:
 - `recipes/first-run-setup.md` — pre-condition state check.
@@ -39,7 +39,7 @@ Parse the triggering prompt. Fill these inputs, asking only for what's missing:
 
 ---
 
-## Step 2 — Environment + confirmation gate (D09)
+## Step 2 — Environment + confirmation gate
 
 **Prod confirmation gate.** If `environment == "prod"`, per the `operations.md` `createRule` row (`safe` in dev, `dangerous` in prod), emit the canonical confirmation (verbatim from `operations.md` §"Collection create / update in prod"):
 
@@ -103,8 +103,8 @@ GraphQL always returns `200` at the HTTP layer — check for `errors[]` in the J
 | Outcome | Action |
 |---|---|
 | `data.createRule` present, `errors` absent | Success. Extract `id` (string over the wire — GraphQL `ID` type; coerce to number with `Number(id)` if you need a numeric id for a subsequent `updateRules` / `deleteRule` / `syncRuleToProd` call). Extract `slug`, `name`, `type` (expect `CUSTOM` — `DEFAULT` is reserved for the workspace-default collection). Proceed to Step 4. |
-| `errors[0].extensions.code == "UNAUTHENTICATED"` or HTTP `401` | Ownership/cross-env mismatch (per `errors.md` §401 / **D28**). Halt. Tell the user: "The key appears to belong to a different environment than the resource. Swap key and retry." Do NOT auto-retry with the other env var. |
-| HTTP `403` | Bad/revoked/public key (per `errors.md` §403 / **D28**). Halt. Link to dashboard `https://app.frigade.com/settings/api`. Route user back to `first-run-setup.md` Section 2.7 verification curl. |
+| `errors[0].extensions.code == "UNAUTHENTICATED"` or HTTP `401` | Ownership/cross-env mismatch (per `errors.md` §401). Halt. Tell the user: "The key appears to belong to a different environment than the resource. Swap key and retry." Do NOT auto-retry with the other env var. |
+| HTTP `403` | Bad/revoked/public key (per `errors.md` §403). Halt. Link to dashboard `https://app.frigade.com/settings/api`. Route user back to `first-run-setup.md` Section 2.7 verification curl. |
 | `errors[]` with validation message (missing required field, wrong type) | Auto-correct one obvious case if possible (e.g. `coolOffPeriod` was sent as a string `"7"` instead of number `7`) and retry once. Otherwise halt and surface the raw `errors[].message`. |
 | HTTP `5xx` or network error | Transient (per `errors.md` §5xx). Retry once after 1s. If still failing, halt with timestamp. Do NOT proceed to Step 4 — partial composite failure handling applies (see bottom of recipe). |
 
@@ -115,7 +115,7 @@ GraphQL always returns `200` at the HTTP layer — check for `errors[]` in the J
 - `type` — expect `"CUSTOM"` for a user-created collection.
 - Dashboard URL: `https://app.frigade.com/collections/<slug>`.
 
-Log a `create-collection:server-created` event to `.frigade/skill.log` (per **D17**) with `op`, `slug`, `id`, `env`, and the `Authorization` header redacted.
+Log a `create-collection:server-created` event to `.frigade/skill.log` with `op`, `slug`, `id`, `env`, and the `Authorization` header redacted.
 
 ---
 
@@ -150,7 +150,7 @@ Detect package manager by lockfile presence (stop at the first match):
 
 Run via Bash, in the directory that holds the relevant `package.json` (the host app's dir in a monorepo, the repo root otherwise). Use `run_in_background` to avoid blocking on slow installs — poll with `Monitor` if needed.
 
-**On failure** (non-zero exit, network error, resolver error): surface stderr to the user verbatim, halt; do NOT proceed to Steps 6–7. Log the failure per **D17** (redact any tokens in the npm output — rare but possible with private registries). The collection still exists in Frigade — report "collection created but install failed at Step 5" per the partial-failure template at the bottom.
+**On failure** (non-zero exit, network error, resolver error): surface stderr to the user verbatim, halt; do NOT proceed to Steps 6–7. Log the failure to `.frigade/skill.log` (redact any tokens in the npm output — rare but possible with private registries). The collection still exists in Frigade — report "collection created but install failed at Step 5" per the partial-failure template at the bottom.
 
 **Idempotency.** If the project already has `@frigade/react` in `dependencies` (check `package.json`), skip the install — just confirm and move on. Do NOT re-install or auto-upgrade without the user's say-so (breaking-change risk).
 
@@ -158,7 +158,7 @@ Run via Bash, in the directory that holds the relevant `package.json` (the host 
 
 ## Step 6 — Ensure provider is mounted
 
-Per the framework adapter picked in Step 4. This step, plus Step 7, plus any `.env.local` edits compose one **atomic code-edit batch** (per **D16**): take snapshots of every file you're about to edit; if any edit fails, revert all prior edits in the batch.
+Per the framework adapter picked in Step 4. This step, plus Step 7, plus any `.env.local` edits compose one **atomic code-edit batch**: take snapshots of every file you're about to edit; if any edit fails, revert all prior edits in the batch.
 
 **If `<Frigade.Provider>` is already mounted** (e.g., from a prior `create-announcement.md` run in the same project), skip this step entirely — `Read` the candidate provider file, detect `<Frigade.Provider` in its contents, and move to Step 7. Idempotency matters: collections and announcements share the same provider.
 
@@ -274,7 +274,7 @@ Per the framework adapter picked in Step 4. This step, plus Step 7, plus any `.e
 
 Follow the inline template in `recipes/create-announcement.md` §"Plain-React (Vite / CRA) inline template". Edit `src/main.tsx` / `src/index.tsx` to mount `<FrigadeProviders>` around `<App />`.
 
-**Public key source (all frameworks):** `process.env.NEXT_PUBLIC_FRIGADE_API_KEY` for Next, `import.meta.env.VITE_FRIGADE_API_KEY` for Vite, `process.env.REACT_APP_FRIGADE_API_KEY` for CRA. Per **D07**, the **private** key (`FRIGADE_API_KEY_SECRET`) **must never** appear in any client-reachable file — only in `.env.local` where the skill reads it for REST/GraphQL calls. If you catch yourself about to reference the private key from a component, stop.
+**Public key source (all frameworks):** `process.env.NEXT_PUBLIC_FRIGADE_API_KEY` for Next, `import.meta.env.VITE_FRIGADE_API_KEY` for Vite, `process.env.REACT_APP_FRIGADE_API_KEY` for CRA. The **private** key (`FRIGADE_API_KEY_SECRET`) **must never** appear in any client-reachable file — only in `.env.local` where the skill reads it for REST/GraphQL calls. If you catch yourself about to reference the private key from a component, stop.
 
 ---
 
@@ -343,7 +343,7 @@ If the user said "only when they visit `/dashboard`" or "on the settings page":
 
 `sdk-react.md` §"`<Frigade.Collection>`" notes the Provider auto-renders a built-in **default** Collection when `defaultCollection={true}` (the default) — that's a different thing from the custom Collection this recipe just created. Custom Collections with a user-chosen name/slug always require an explicit `<Frigade.Collection collectionId="<slug>" />` tag. Do not remove it on the assumption that `defaultCollection` covers it.
 
-**Honor user-specified location.** If the user said "mount the Product Updates collection on the settings page," don't default to `app/app-flows.tsx` — mount it in `app/settings/page.tsx` (or the equivalent page file) instead. Snapshot that file before editing; the atomic-batch behavior from **D16** still applies.
+**Honor user-specified location.** If the user said "mount the Product Updates collection on the settings page," don't default to `app/app-flows.tsx` — mount it in `app/settings/page.tsx` (or the equivalent page file) instead. Snapshot that file before editing; the atomic-batch behavior still applies.
 
 ### Atomic batch boundary
 
@@ -351,7 +351,7 @@ Step 6 + Step 7 + any `.env.local` edit form one atomic code-edit batch. Before 
 
 ---
 
-## Step 8 — Grep guard (D07)
+## Step 8 — Grep guard
 
 After code emission (Steps 6 and 7), run a guard to confirm the private key didn't leak into any client-reachable source file:
 
@@ -359,7 +359,7 @@ After code emission (Steps 6 and 7), run a guard to confirm the private key didn
 grep -rn "FRIGADE_API_KEY_SECRET" src/ app/ pages/ components/ 2>/dev/null || true
 ```
 
-**Expected: zero hits.** If any hit appears in a `.ts`, `.tsx`, `.js`, or `.jsx` file under those dirs, that's a D07 violation. Actions:
+**Expected: zero hits.** If any hit appears in a `.ts`, `.tsx`, `.js`, or `.jsx` file under those dirs, that's a private-key-leak violation of the hard rule that secrets never enter client code. Actions:
 
 1. Revert the entire Step 6 + 7 batch using the snapshots taken at the batch boundary.
 2. Log `create-collection:secret-leak-detected` to `.frigade/skill.log` (redact the key itself; include file path and line number).
@@ -369,9 +369,9 @@ The guard is purely defensive — the templates in Step 6 never reference the pr
 
 ---
 
-## Step 9 — Ask to start the dev server (D14)
+## Step 9 — Ask to start the dev server
 
-Prompt the user with a single yes/no (per **D14**, never auto-start):
+Prompt the user with a single yes/no (never auto-start):
 
 > Start the dev server now (`npm run dev` / `yarn dev` / `pnpm dev` / `bun dev`) so you can see the collection at http://localhost:3000? (y/n)
 
@@ -384,7 +384,7 @@ Command picker (same lockfile logic as Step 5):
 | `bun.lockb` | `bun dev` |
 | default | `npm run dev` |
 
-- **Yes** → run via Bash with `run_in_background: true`. Report: "Dev server started. Open http://localhost:3000 in your browser — flows attached to this collection should appear." If a port collision occurs, surface the error and hand back without killing processes (D14 — dev server lifecycle is out of scope for auto-recovery, per `errors.md` §"Partial failure" item 5).
+- **Yes** → run via Bash with `run_in_background: true`. Report: "Dev server started. Open http://localhost:3000 in your browser — flows attached to this collection should appear." If a port collision occurs, surface the error and hand back without killing processes (dev server lifecycle is out of scope for auto-recovery, per `errors.md` §"Partial failure" item 5).
 - **No** → report: "Run `<dev command>` when you're ready; flows attached to the collection will appear at http://localhost:3000."
 
 Note: a freshly created collection with **no flows attached** will render nothing at runtime. That's expected — attaching flows is the job of `recipes/add-flows-to-collection.md` (or the `updateRules` mutation with a `flowIds` array). Step 10's success message surfaces this.
@@ -423,7 +423,7 @@ Open http://localhost:3000 — the collection contains <N> flow(s) and they shou
 
 ## Step 11 — Log success
 
-Append a `create-collection:success` event to `.frigade/skill.log` (per **D17**) with:
+Append a `create-collection:success` event to `.frigade/skill.log` with:
 - `op: "create-collection"`
 - `slug`, `id` (as string from the response; don't lose precision by coercing to number here)
 - `env` (`dev` or `prod`)
@@ -435,13 +435,13 @@ Redact any `Authorization` header value and any raw API key anywhere in the log 
 
 ---
 
-## Partial-failure handling (D16)
+## Partial-failure handling
 
 Use the template below **verbatim** when any step between 3 and 7 fails. This is the canonical shape from `errors.md` §"Reporting partial failures".
 
 ### Behaviors
 
-1. **Upstream state is preserved.** If Step 3 succeeded and any of Steps 4–7 failed, the collection exists in Frigade. Do **not** call `deleteRule` as silent recovery (per **D16** item 4 and `errors.md` §"Partial failure" item 2). Let the user decide.
+1. **Upstream state is preserved.** If Step 3 succeeded and any of Steps 4–7 failed, the collection exists in Frigade. Do **not** call `deleteRule` as silent recovery (per `errors.md` §"Partial failure" item 2). Let the user decide.
 2. **Code-edit batches are atomic.** Steps 6–7 (plus any `.env.local` edits) form one atomic batch. Snapshot every file before its first edit; if any edit in the batch fails, revert all file edits in the batch to their pre-batch state. Package installs (Step 5) are NOT rolled back — they're cheap to keep and safe (adding `@frigade/react` to `package.json` breaks nothing).
 3. **Idempotency on retry.** A follow-up "retry code wiring only" invocation re-runs parameter resolution but **skips Step 3** (the collection already exists — look it up via `reference/graphql-schema.md` §`rules` query with the known slug). Skips Step 5 if `@frigade/react` is already in `dependencies`. Re-reads file state from disk before re-attempting Steps 6–7. Do NOT trust a stale before-state cache.
 4. **Never destructive without confirmation.** The recovery offer includes a `deleteRule` option only as an explicit choice, and the skill emits the canonical `Collection delete` confirmation from `operations.md` §"Collection delete" before acting: `"About to delete collection '<name>' in <env>. Flows attached to this collection will lose the association. Confirm? (y/n)"`

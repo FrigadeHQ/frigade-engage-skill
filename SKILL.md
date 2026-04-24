@@ -74,7 +74,6 @@ The authoritative list of operation names, their verbs, their targets, and their
 | Flow YAML structure (the `data` field of a flow) | `reference/yaml-spec.md` |
 | Targeting rules and audience DSL | `reference/targeting-and-rules.md` |
 | Error classes, status codes, and recovery strategy | `reference/errors.md` |
-| Why the skill is scoped/shaped this way (D## decisions referenced in recipes and references) | `reference/decisions.md` |
 
 ## Hard rules (non-negotiable)
 
@@ -105,8 +104,6 @@ The authoritative list of operation names, their verbs, their targets, and their
 
 The framework detection happens in `recipes/first-run-setup.md` and is re-checked by every wiring-capable recipe before it emits code.
 
-## Cross-references and governance
+## When a request doesn't map cleanly
 
-- Decisions log (all locked decisions + rationale): `reference/decisions.md`
-
-If you are Claude and a user's request does not map cleanly to a row in the dispatch table, do not silently improvise. Tell the user which recipe you think is closest, propose an extension of that pattern, and wait for confirmation before executing. The decisions log captures why the skill is scoped and shaped the way it is — consult it when an ambiguity comes up that isn't answered here.
+If a user's request does not map cleanly to a row in the dispatch table, do not silently improvise. Tell the user which recipe you think is closest, propose an extension of that pattern, and wait for confirmation before executing.

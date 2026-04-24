@@ -2,7 +2,7 @@
 
 How the skill recovers from Frigade API failures and from its own composite-operation partial failures. Read this when any Frigade call returns a non-2xx response, when a GraphQL body contains `errors`, or when a multi-step recipe (flow-create + code-wiring) aborts mid-sequence.
 
-Companion refs: `graphql-schema.md` (GraphQL surface), `rest-endpoints.md` (REST surface + canonical error shape at lines 679–698), `sdk-react.md` (SDK surface). Also see `decisions.md` D16 (rollback policy), D17 (skill.log), D24 (introspection disabled in prod), D25 (GraphQL errors wrapped), D27 (`GET /v1/me` not skill-reachable).
+Companion refs: `graphql-schema.md` (GraphQL surface), `rest-endpoints.md` (REST surface + canonical error shape at lines 679–698), `sdk-react.md` (SDK surface).
 
 ## GraphQL vs REST error shape (critical context)
 
@@ -97,7 +97,7 @@ or, for the handful of services that throw `UnauthorizedException('OrganizationI
 1. Halt the operation.
 2. Tell the user which env var was used (`FRIGADE_API_KEY_SECRET` or `FRIGADE_API_KEY_SECRET_PROD`) and which endpoint it was sent to.
 3. Link them to the dashboard: `https://app.frigade.com/settings/api`.
-4. Suggest a verification curl that does NOT require Clerk (D27 — `GET /v1/me` won't work):
+4. Suggest a verification curl that does NOT require Clerk (`GET /v1/me` isn't skill-reachable — it requires a Clerk session):
    ```bash
    curl -sS -H "Authorization: Bearer $FRIGADE_API_KEY_SECRET" https://api3.frigade.com/v1/apiKeys
    ```
@@ -200,7 +200,7 @@ or, from the `NotFoundInterceptor` tripping on a GET that returned `null`:
 { "statusCode": 500, "message": "Internal server error" }
 ```
 
-The real stack is NOT echoed — it's only in backend-app logs / Sentry (D25 context, REST doesn't wrap but 500s don't echo their cause).
+The real stack is NOT echoed — it's only in backend-app logs / Sentry (REST doesn't wrap errors the way GraphQL does, but 500s still don't echo their cause in the response body).
 
 **Cause:** Uncaught service exception (e.g. activating a flow with no draft, some data-integrity violation, a Prisma query that panicked). Also covers 502 / 503 / 504 from the infra layer (load balancer timeouts, cluster restart).
 
@@ -241,7 +241,7 @@ The real stack is NOT echoed — it's only in backend-app logs / Sentry (D25 con
 ```
 or the wrapped `"An unexpected error occurred in graphql"` if `formatError` catches it first.
 
-**Cause:** `GraphQLModule.forRoot` sets `introspection: process.env.NODE_ENV !== 'production'` — introspection is only enabled on the dev cluster. Running `{ __schema { ... } }` against `https://api3.frigade.com/graphql` will always fail in prod (D24).
+**Cause:** `GraphQLModule.forRoot` sets `introspection: process.env.NODE_ENV !== 'production'` — introspection is only enabled on the dev cluster. Running `{ __schema { ... } }` against `https://api3.frigade.com/graphql` will always fail in prod.
 
 **Skill response:**
 1. Do not attempt introspection against prod as a recovery step.
@@ -256,11 +256,11 @@ A "composite operation" is a recipe with multiple sequential side-effects. The c
 2. Install `@frigade/react` via the host package manager (codebase state).
 3. Wire `<FrigadeProvider>` into `app/providers.tsx` or equivalent (codebase state).
 4. Mount `<Announcement flowId="...">` at the user's chosen anchor (codebase state).
-5. Optionally start the dev server for visual confirmation (host process state — never without user confirmation, per D14).
+5. Optionally start the dev server for visual confirmation (host process state — never without user confirmation).
 
 Failures partway through this sequence need deliberate handling.
 
-### Partial failure rules (D16)
+### Partial failure rules
 
 1. **Code-edit batches are atomic.** If any file-edit in the batch fails (file locked, write error, user interrupt), revert all file edits in this batch. Keep a before-state snapshot (file contents keyed by absolute path) before the batch starts and restore on failure. This applies ONLY to edits inside a single atomic unit (e.g. install + provider-wire + anchor-mount is one unit for a single flow).
 2. **Upstream Frigade state is preserved.** Do NOT auto-delete server-side flows as a recovery step. If steps 1–2 succeeded and step 3 failed, the flow on Frigade's side stays. Report it as "created server-side, but code wiring failed at step N." Let the user decide whether to delete or reuse.
@@ -312,12 +312,12 @@ If the user picks "retry code wiring only":
 If a GraphQL response's data shape doesn't match what `graphql-schema.md` documents (missing field, renamed field, changed type):
 
 1. **In a dev environment**, try `{ __schema { types { name fields { name type { name } } } } }` against the dev GraphQL endpoint to refresh understanding. If the introspection call itself fails with the wrapped error, treat drift as unrecoverable and follow the prod path.
-2. **In production**, introspection is disabled (D24). Treat the committed `graphql-schema.md` as authoritative. If a response genuinely has a new field the snapshot doesn't document, log it and continue using only the documented fields.
+2. **In production**, introspection is disabled. Treat the committed `graphql-schema.md` as authoritative. If a response genuinely has a new field the snapshot doesn't document, log it and continue using only the documented fields.
 3. **Report drift to the user** with a one-line note: "Response shape didn't match the committed snapshot; see `.frigade/skill.log` for the raw body. I'll continue using only fields from `graphql-schema.md`." Include a suggestion to open an issue on the skill repo so the snapshot can be regenerated.
 
 ## Logging
 
-Every error — API-class or composite-partial — gets written to `.frigade/skill.log` in the host repo (D17). The log is append-only JSON lines; one line per event. Required fields:
+Every error — API-class or composite-partial — gets written to `.frigade/skill.log` in the host repo. The log is append-only JSON lines; one line per event. Required fields:
 
 - `timestamp` — ISO 8601 UTC.
 - `op` — operation name (e.g. `create-announcement:step-3`, `rest.POST /v1/flows`, `graphql.CreateRule`).
@@ -349,8 +349,3 @@ The log file is gitignored by default — the skill ensures `.frigade/` is in th
 ## Cross-reference
 
 - REST error shape canonical: `skill/reference/rest-endpoints.md` § "Error format" (lines 679–698).
-- GraphQL error-wrapping decision: `decisions.md` D25.
-- Introspection-disabled-in-prod decision: `decisions.md` D24.
-- Composite rollback policy: `decisions.md` D16.
-- Skill log location + gitignore: `decisions.md` D17.
-- Workspace-binding verification (no `/v1/me`): `decisions.md` D27.

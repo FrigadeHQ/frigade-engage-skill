@@ -2,15 +2,13 @@
 
 **Cross-flow linking recipe.** Given two flows that already exist in Frigade (source + target — typically an announcement whose CTA starts a tour), wire the source's `primary` (or `secondary`) button on the **React component** to call the target flow's `.restart()` method. This is the step that closes Eric's dogfood loop: announcement "Take a tour" CTA → starts the tour.
 
-**Why a React handler and not YAML?** Per **D12 (revised)**, the v2 SDK's YAML `action` enum (`flow.start`, `flow.complete`, `flow.forward`, `flow.back`, `flow.restart`, `flow.skip`, `false`) operates only on the *containing* flow. There is **no** `action: flow.start:<other-slug>` or `nextFlowId` value. Cross-flow linking must be done from the React side via `onPrimary`/`onSecondary` handlers on the source flow's mounted component, which call `useFlow(<target-slug>).flow.restart()`. Confirmed in `reference/sdk-react.md` §D12 and `reference/yaml-spec.md` §"CTA `action` enum".
-
-Referenced decisions: **D04** (end-to-end wiring), **D12 (revised)** (cross-flow linking is a React handler, not YAML), **D14** (ask before starting dev server — not applicable here; this recipe only edits code), **D15** (single batch confirmation for code edits), **D16** (atomic code-edit batch with rollback on failure), **D17** (log to `.frigade/skill.log`), **D28** (403 = bad key, 401 = ownership).
+**Why a React handler and not YAML?** The v2 SDK's YAML `action` enum (`flow.start`, `flow.complete`, `flow.forward`, `flow.back`, `flow.restart`, `flow.skip`, `false`) operates only on the *containing* flow. There is **no** `action: flow.start:<other-slug>` or `nextFlowId` value. Cross-flow linking must be done from the React side via `onPrimary`/`onSecondary` handlers on the source flow's mounted component, which call `useFlow(<target-slug>).flow.restart()`. Confirmed in `reference/sdk-react.md` §"Cross-flow CTAs" and `reference/yaml-spec.md` §"CTA `action` enum".
 
 Companion refs:
 - `recipes/first-run-setup.md` — pre-condition state check (Section 1).
 - `recipes/create-announcement.md` (commit `5772a24`) — authors the source flow; leaves `primaryButton.action: false` and records a `pending_link` event that this recipe reads.
 - `recipes/create-tour.md` (commit `12e84d6`) — authors the target flow; its closing `NEXT` block hands off here.
-- `reference/sdk-react.md` §"D12 — starting a *different* flow from a CTA" — the authoritative snippet for the React handler pattern. §`useFlow` — hook contract (`{ flow: Flow | undefined; isLoading: boolean }`). §`<Frigade.Announcement>` props — `onPrimary` / `onSecondary` signatures.
+- `reference/sdk-react.md` §"Cross-flow CTAs" — the authoritative snippet for the React handler pattern. §`useFlow` — hook contract (`{ flow: Flow | undefined; isLoading: boolean }`). §`<Frigade.Announcement>` props — `onPrimary` / `onSecondary` signatures.
 - `reference/yaml-spec.md` §"CTA `action` enum" — enumerates what YAML actions *do* exist; confirms cross-flow is NOT among them.
 - `reference/rest-endpoints.md` — `GET /v1/flows/<slug>` contract (this recipe uses it twice, read-only, to verify both flows exist).
 - `reference/errors.md` — §404 handling (halt with pointer to the create recipe) and §"Partial failure rules" (rollback snapshot on edit failure).
@@ -29,7 +27,7 @@ Companion refs:
 4. **`@frigade/react` is installed** in the host project. Confirm via `package.json`. If absent, the create-announcement / create-tour recipe's Step 5/6 installs it — route there.
 5. **`FRIGADE_API_KEY_SECRET` is exported** into the shell that runs the verification `curl`s in Step 1 (e.g. `set -a; source .env.local; set +a`). Never paste the raw key into a tool-call argument.
 
-If any pre-condition fails, halt with a clear pointer at the prerequisite recipe and do not edit any files. Log a `link-flows:precondition-failed` event to `.frigade/skill.log` per **D17**.
+If any pre-condition fails, halt with a clear pointer at the prerequisite recipe and do not edit any files. Log a `link-flows:precondition-failed` event to `.frigade/skill.log`.
 
 ---
 
@@ -79,15 +77,15 @@ Interpretation (per `reference/errors.md`):
 | `200` (both) | Both flows exist. Proceed to Step 2. |
 | `404` on source | Halt. Tell user: "Source flow `<source-slug>` doesn't exist in Frigade. Run `recipes/create-announcement.md` (or the matching create recipe for this flow type) first." |
 | `404` on target | Halt. Tell user: "Target flow `<target-slug>` doesn't exist in Frigade. Run `recipes/create-tour.md` (or the matching create recipe) first." |
-| `401` | Ownership/cross-env mismatch per **D28**. Halt; surface error message. |
-| `403` | Bad/revoked key per **D28**. Halt; route to `first-run-setup.md` Section 2.7. |
+| `401` | Ownership/cross-env mismatch. Halt; surface error message. |
+| `403` | Bad/revoked key. Halt; route to `first-run-setup.md` Section 2.7. |
 | `5xx` / network | Retry once after 1s. If still failing, halt with timestamp in the log. |
 
 **No write calls are made in this recipe.** Both curls above are GETs (see `reference/operations.md` — `lookupFlow` is `safe` in all environments). This recipe is purely code-side; Frigade-side state is never mutated.
 
 ### 1.5 — Log the inputs
 
-Append to `.frigade/skill.log` (per **D17**) a `link-flows:start` event with: source slug, target slug, button side, both GET statuses. Redact the `Authorization` header.
+Append to `.frigade/skill.log` a `link-flows:start` event with: source slug, target slug, button side, both GET statuses. Redact the `Authorization` header.
 
 ---
 
@@ -125,9 +123,9 @@ Log a `link-flows:mount-found` event to `.frigade/skill.log` with file path, lin
 
 ---
 
-## Step 3 — Confirm the change (D15)
+## Step 3 — Confirm the change
 
-Emit a **single consolidated confirmation prompt** with the plan. This is one user-facing prompt — not a per-file ask — per **D15** (single batch confirmation for code edits). The prompt shows the exact diff the recipe will apply.
+Emit a **single consolidated confirmation prompt** with the plan. This is one user-facing prompt — not a per-file ask — use a single batch confirmation for code edits. The prompt shows the exact diff the recipe will apply.
 
 ### 3.1 — Confirmation template (Pattern A — the common case)
 
@@ -222,9 +220,9 @@ If the user specifically wants the CTA to be ignored on already-started flows, e
 
 ---
 
-## Step 4 — Apply the code change (D16 — atomic edit)
+## Step 4 — Apply the code change (atomic edit)
 
-Single-file edit, wrapped in the D16 snapshot-and-revert pattern.
+Single-file edit, wrapped in the snapshot-and-revert atomic-batch pattern.
 
 ### 4.1 — Snapshot
 
@@ -334,11 +332,11 @@ If the target flow doesn't start:
 
 If Step 5 also wired a reverse link, add a second `Linked:` block for that direction.
 
-Log a `link-flows:success` event to `.frigade/skill.log` per **D17** with: source slug, target slug, button side, file path touched, varName chosen, Frigade environment (`dev` unless the user specified prod — prod is treated identically here since this recipe makes no server-side writes). Redact any `Authorization` header from the Step 1 GET log entries.
+Log a `link-flows:success` event to `.frigade/skill.log` with: source slug, target slug, button side, file path touched, varName chosen, Frigade environment (`dev` unless the user specified prod — prod is treated identically here since this recipe makes no server-side writes). Redact any `Authorization` header from the Step 1 GET log entries.
 
 ---
 
-## Partial-failure handling (D16)
+## Partial-failure handling
 
 This recipe is **simpler** than `create-*` recipes in one important way: **it makes no Frigade-side writes**. The only mutations are to a single file in the host codebase. That means:
 

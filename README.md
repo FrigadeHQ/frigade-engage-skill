@@ -48,7 +48,7 @@ Prod keys are optional and only needed for prod-side ops or dev→prod promotion
 ```
 SKILL.md              — entry point (metadata + dispatch tables + hard rules)
 recipes/              — step-by-step playbooks for each user intent
-reference/            — API surface, SDK wiring, error handling, decisions
+reference/            — API surface, SDK wiring, error handling
 examples/             — production-quality YAML examples per flow type
 tests/                — integration tests (local-only; see below)
 scripts/              — maintenance scripts (sweep leaked test flows)
@@ -68,10 +68,6 @@ scripts/              — maintenance scripts (sweep leaked test flows)
 - **Destructive ops** (`delete-flow`, `reset-user`, etc.) always confirm, regardless of environment.
 
 Full model in [`SKILL.md`](SKILL.md) § "Safety model summary" and [`reference/operations.md`](reference/operations.md).
-
-## Why it's shaped this way
-
-See [`reference/decisions.md`](reference/decisions.md) for the full locked decisions log (D01–D35) covering scope, framework support, key storage, safety tiers, binding model, error semantics, and more.
 
 ## Running the integration tests
 

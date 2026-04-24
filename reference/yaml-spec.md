@@ -11,7 +11,7 @@ Cross-references:
 - **Targeting DSL** (the `targetingLogic`, `visibilityCriteria`, `startCriteria`, `completionCriteria` strings): **see `targeting-and-rules.md`** (Task 14 — TBD at time of writing; use `user.property('...')`, `user.flowStepData('flowId', 'stepId', 'fieldId')`, boolean ops, and `==`/`!=` as shown in the examples below).
 - **Creating / updating flows**: see `rest-endpoints.md` (POST/PUT `/v1/flows`) and `operations.md`. The `data` field transmitted to those endpoints is the YAML string documented here.
 - **SDK wiring and the CTA action enum**: see `sdk-react.md`.
-- **Cross-flow "start another flow" CTA**: the YAML `action` enum does **NOT** support this declaratively — see `sdk-react.md` "**D12 — starting a different flow from a CTA**" and (forthcoming) `recipes/link-flows.md`.
+- **Cross-flow "start another flow" CTA**: the YAML `action` enum does **NOT** support this declaratively — see `sdk-react.md` "**Starting a different flow from a CTA**" and (forthcoming) `recipes/link-flows.md`.
 
 ## Common top-level structure
 
@@ -147,7 +147,7 @@ export function WelcomeAnnouncement() {
 }
 ```
 
-See `sdk-react.md` section **D12** for the full decision rationale and the alternate `uri`-based pattern.
+See `sdk-react.md` section **Cross-flow CTAs** for the alternate `uri`-based pattern.
 
 ## Media / images
 
@@ -978,7 +978,7 @@ steps:
 - **YAML indentation** — use two spaces. Server-side parse errors from tabs or odd indentation surface as 422 with a YAML parser message in `body.message`. Always lint locally with `yaml.load()` before POSTing.
 - **Keys are camelCase** — match the TS types (`imageUri`, `primaryButton`, `visibilityCriteria`). Snake_case or kebab-case will silently ignore unknown fields.
 - **Step `id` immutability** — changing a step's `id` after users have state against it orphans the state (user's completion for the old ID is no longer reachable by the new step). If renaming, follow the dev→prod promotion path with a flow version bump (`operations.md` §Flow operations, `createFlowVersion`).
-- **Cross-flow CTA** — there is no `action` value that starts another flow. Use the React `onPrimary`/`onSecondary` handler pattern documented in `sdk-react.md` D12.
+- **Cross-flow CTA** — there is no `action` value that starts another flow. Use the React `onPrimary`/`onSecondary` handler pattern documented in `sdk-react.md` §"Cross-flow CTAs".
 - **`NUDGE` / `MODAL` are not FlowTypes** — if the user asks for one, clarify which real type (Hint/Banner/Card for "nudge"; set `as={Frigade.Dialog}` on any flow for "modal").
 - **Secondary-button default action** — same as primary: defaults to `step.complete`. For an outbound link that must NOT complete the step, set `action: false` explicitly (as every example in this reference does).
 

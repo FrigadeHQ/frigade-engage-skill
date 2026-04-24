@@ -445,7 +445,7 @@ steps:
 | `flow.restart` | Reset the containing flow to step 1. |
 | `false` | No built-in action; rely entirely on `onPrimary`/`onSecondary` React handlers. |
 
-### D12 — starting a *different* flow from a CTA
+### Cross-flow CTAs — starting a *different* flow from a CTA
 
 **The YAML `action` enum operates only on the containing flow** — there is no `action: flow.start:<target_id>` or `nextFlowId` syntax in the v2 SDK. The verdict: **Frigade does not ship a native declarative "start another flow" CTA action.** To wire a flow-to-flow CTA, the link-flows recipe (Task 18) should emit one of these patterns:
 

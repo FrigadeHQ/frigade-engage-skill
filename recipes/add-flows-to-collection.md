@@ -2,7 +2,7 @@
 
 **Add one or more flows to an existing collection.** API-only (no code emission). Fetches the collection's current `flowIds`, unions with the new IDs (no duplicates), and issues a single `updateRules` bulk mutation with the resulting membership plus every other required field from the fetched collection. Atomic on the server side.
 
-Referenced decisions: **D02** (dashboard parity), **D09/D23** (per-env safety tags), **D16** (atomic server-side transaction), **D17** (log to `.frigade/skill.log`), **D28** (403 = bad key, 401 = ownership), **D31** (GraphQL `Rule` = product `Collection`; customer-facing language is "collection").
+Note on naming: GraphQL `Rule` = product `Collection`; customer-facing language is always "collection".
 
 Companion references: `reference/graphql-schema.md` §`updateRules` + §`rules`, `reference/operations.md` `updateRules` row, `reference/errors.md` (partial-failure patterns).
 
@@ -76,7 +76,7 @@ Construct:
       "flowIds": unionedFlowIds
     }
 
-## Step 6 — Environment + confirmation gate (D09)
+## Step 6 — Environment + confirmation gate
 
 - `dev`: `updateRules` is `safe` per `operations.md`; proceed.
 - `prod`: emit canonical prompt:
@@ -96,8 +96,8 @@ Construct:
       }'
 
 The mutation is atomic — either the whole update lands or none does. Standard error handling:
-- `401` → halt per **D28** (ownership/cross-env mismatch).
-- `403` → halt per **D28** (bad/revoked key); route to `first-run-setup.md` §2.7.
+- `401` → halt (ownership/cross-env mismatch).
+- `403` → halt (bad/revoked key); route to `first-run-setup.md` §2.7.
 - `errors[]` in body → surface the messages verbatim and halt. Do NOT retry automatically.
 
 ## Step 8 — Verify

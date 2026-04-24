@@ -2,8 +2,6 @@
 
 **This is the entry-point recipe. Every other recipe's pre-conditions block says "run `first-run-setup` first" — so Claude runs Section 1 of this recipe at the start of every skill invocation.** The work is idempotent: if the repo is already bound and the keys are already in place, Section 1 is a silent no-op and control returns to the caller. If any piece is missing, Section 2 / 3 / 4 handles recovery.
 
-Referenced decisions: **D06** (keys in per-project `.env.local`), **D07** (four env vars; private keys never enter client code), **D08** (new vs existing Frigade user paths), **D13** (committed `.frigade/project.json` marker + binding check on every invocation), **D17** (`.frigade/skill.log` diagnostic log), **D21** (`.gitignore` hygiene), **D27** (verify key↔workspace via `GET /v1/apiKeys`, not `/v1/me`), **D28** (403 is "bad key", 401 is ownership).
-
 Companion refs: `reference/rest-endpoints.md` (`/v1/apiKeys` contract), `reference/errors.md` (403/401 handling).
 
 ---
@@ -75,8 +73,8 @@ curl -sS "https://api3.frigade.com/v1/apiKeys" \
 Interpretation:
 - **200** with `data: [...]` containing a key whose `key` field equals `FRIGADE_API_KEY_SECRET` and whose `organizationId` equals `marker.workspaceId` → match. Proceed silently.
 - **200** but `organizationId` does not equal `marker.workspaceId` → go to **Section 3**.
-- **403 Forbidden** → the key is invalid or revoked (per **D28**). Report to user: "Your dev private key (`FRIGADE_API_KEY_SECRET`) was rejected by Frigade (403). Re-check it at https://app.frigade.com/settings/api and re-run, or choose to rebind." Halt.
-- **401 Unauthorized** → narrower ownership error (per **D28**); surface the message verbatim and halt.
+- **403 Forbidden** → the key is invalid or revoked. Report to user: "Your dev private key (`FRIGADE_API_KEY_SECRET`) was rejected by Frigade (403). Re-check it at https://app.frigade.com/settings/api and re-run, or choose to rebind." Halt.
+- **401 Unauthorized** → narrower ownership error; surface the message verbatim and halt.
 - **Network error / 5xx** → halt with "couldn't reach Frigade to verify key binding; try again."
 
 **Important:** Compare key identity by matching `apiKey.key` to the secret you have (from `.env.local`). Do not rely on pattern-guessing. The `key` field in the `/v1/apiKeys` response is the full secret value (see `reference/rest-endpoints.md` — treat the response body with care, do not log it wholesale).
@@ -97,7 +95,7 @@ Print this (or a close variant — keep to ~3-4 lines):
 
 > This is the Frigade Engage skill. It'll help you build and manage Frigade flows (announcements, tours, checklists, etc.) from the terminal. To get started I need your Frigade API keys for this project; they'll be written to `.env.local` (gitignored) and the workspace binding will be saved to `.frigade/project.json` (safe to commit).
 
-### Step 2.2 — Existing vs new Frigade account (per D08)
+### Step 2.2 — Existing vs new Frigade account
 
 Ask:
 
@@ -131,7 +129,7 @@ Ask:
 - **Yes** → ask for prod public, then prod private (same mask-on-accept pattern); store as `$PROD_PUBLIC` and `$PROD_PRIVATE`.
 - **No** → leave prod keys unset for now. Section 5 will resume onboarding for prod keys when the user first targets a prod op.
 
-### Step 2.5 — `.gitignore` hygiene (D21)
+### Step 2.5 — `.gitignore` hygiene
 
 Check `.gitignore` in the repo root:
 
@@ -147,7 +145,7 @@ Check `.gitignore` in the repo root:
   - **No** → halt: "Refusing to write private keys to `.env.local` while it's not gitignored. Add it manually and re-run."
 - **Exists but doesn't cover `.frigade/skill.log`** → append it silently (no prompt — the log is not key material, but leaking it is still undesirable).
 
-### Step 2.6 — Write keys to `.env.local` (D06, D07)
+### Step 2.6 — Write keys to `.env.local`
 
 - If `.env.local` doesn't exist, create it.
 - If it exists, **append** the Frigade block; do NOT overwrite existing variables from other integrations.
@@ -174,7 +172,7 @@ After writing, confirm to the user:
 
 > Wrote dev keys to `.env.local` (gitignored).
 
-### Step 2.7 — Verify keys via `GET /v1/apiKeys` (D27)
+### Step 2.7 — Verify keys via `GET /v1/apiKeys`
 
 For the dev private key, run:
 
@@ -190,11 +188,11 @@ Interpretation:
 
 - **200** with a `data` array → find the entry whose `key` equals `$DEV_PRIVATE`. Read its `organizationId` — that's the dev workspace ID. Record it as `$DEV_WORKSPACE_ID`.
 - **200** but no matching entry → halt: "The key I verified doesn't appear in the org's key list; re-paste your key." Re-prompt.
-- **403** → per **D28**, bad/wrong-scope key. Halt: "Your dev private key was rejected (403). Double-check it at https://app.frigade.com/settings/api and re-run."
-- **401** → per **D28**, ownership/scope edge case. Surface the server message verbatim and halt.
+- **403** → bad/wrong-scope key. Halt: "Your dev private key was rejected (403). Double-check it at https://app.frigade.com/settings/api and re-run."
+- **401** → ownership/scope edge case. Surface the server message verbatim and halt.
 - **Network / 5xx** → "Couldn't reach Frigade; try again later." Halt.
 
-If prod keys were provided in 2.4, repeat the call with `$PROD_PRIVATE` and record `$PROD_WORKSPACE_ID`. **Expect a different `organizationId`** than the dev one — prod env is a sibling org per **D23/D26**. If for some reason they match, surface the oddity but don't block: Frigade may have added unified-env support; note it and continue.
+If prod keys were provided in 2.4, repeat the call with `$PROD_PRIVATE` and record `$PROD_WORKSPACE_ID`. **Expect a different `organizationId`** than the dev one — prod env is a sibling org. If for some reason they match, surface the oddity but don't block: Frigade may have added unified-env support; note it and continue.
 
 ### Step 2.8 — Derive a display name (best effort)
 
@@ -204,7 +202,7 @@ The `/v1/apiKeys` response does not include a human workspace name (see `referen
 
 Store as `$WORKSPACE_NAME` (default: `"Unknown"`). Keep it short; it's only for display.
 
-### Step 2.9 — Write the marker file (D13)
+### Step 2.9 — Write the marker file
 
 Create `.frigade/` directory if it doesn't exist. Write `.frigade/project.json`:
 
@@ -228,7 +226,7 @@ Notes on the schema:
 - `skillVersion` tracks this skill's semver for forward-compat; bump when the schema changes.
 - **Additional fields** (e.g. cached workspace feature flags, theme defaults) are out of scope for v1 — extend during dogfood if a real need appears.
 
-### Step 2.10 — Ensure skill log is gitignored (D17)
+### Step 2.10 — Ensure skill log is gitignored
 
 Already handled in 2.5, but double-check: confirm `.gitignore` contains `.frigade/skill.log`. If it doesn't (e.g. pre-existing `.gitignore` was edited between steps), append it silently.
 
@@ -328,7 +326,7 @@ Report:
 - Default target is `dev`.
 - Target is `prod` when any of the following is true:
   - The user explicitly says "in prod", "production", "promote", "live", etc. in the triggering prompt.
-  - The recipe's own contract specifies `prod` (e.g. `recipes/promote-to-prod.md` per **D26**).
+  - The recipe's own contract specifies `prod` (e.g. `recipes/promote-to-prod.md`).
   - The previous turn already resolved to prod and the user hasn't switched back.
 
 If ambiguous, ask once: "Target dev or prod for this operation?" — default dev.
@@ -349,7 +347,7 @@ If target is `prod` but `FRIGADE_API_KEY_SECRET_PROD` is absent from `.env.local
 - **Yes** → prompt for prod public and prod private (same mask-on-accept pattern as 2.3). Verify via `GET /v1/apiKeys` (expect a different `organizationId` than dev). Append to `.env.local`. Update `.frigade/project.json`'s `prodWorkspaceId` field. Resume the operation.
 - **No** → halt the current operation with "Prod keys required; no changes made." Return to caller without running anything else.
 
-### Step 5.4 — Prod confirmation wrapper (D09)
+### Step 5.4 — Prod confirmation wrapper
 
 Picking the prod key pair is necessary but not sufficient to run a dangerous prod op — the recipe executing the op is still responsible for emitting the canonical confirmation prompt before side effects (see `reference/operations.md`). This recipe only sets up the auth; the `dangerous` gate lives in the op-specific recipe.
 

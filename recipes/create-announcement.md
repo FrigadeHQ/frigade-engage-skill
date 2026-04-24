@@ -1,8 +1,6 @@
 # Recipe: Create Announcement
 
-**End-to-end create-an-announcement recipe.** Takes the user's intent ("build me a welcome announcement"), creates the flow in Frigade, then installs `@frigade/react`, wires the `<Frigade.Provider>`, and mounts `<Frigade.Announcement>` in the host codebase. On partial failure (per **D16**), Frigade-side state is preserved and code-edit batches are rolled back atomically.
-
-Referenced decisions: **D02** (full dashboard parity for flow authoring), **D04** (end-to-end wiring, not just "flow created" success), **D07** (public key in client code; private key only in `.env.local` → `Authorization`), **D09/D23/D26** (per-env safety tags per `operations.md`), **D12 (revised)** (cross-flow CTAs are React handlers, not YAML), **D14** (ask before starting dev server), **D16** (atomic code edits, preserved Frigade state on partial failure), **D17** (log to `.frigade/skill.log`), **D21** (`.gitignore` hygiene), **D27** (no `GET /v1/me`; use REST alone), **D28** (403 = bad key, 401 = ownership).
+**End-to-end create-an-announcement recipe.** Takes the user's intent ("build me a welcome announcement"), creates the flow in Frigade, then installs `@frigade/react`, wires the `<Frigade.Provider>`, and mounts `<Frigade.Announcement>` in the host codebase. On partial failure, Frigade-side state is preserved and code-edit batches are rolled back atomically.
 
 Companion refs:
 - `recipes/first-run-setup.md` — pre-condition state check.
@@ -32,7 +30,7 @@ Parse the triggering prompt. Fill these inputs, asking only for what's missing:
 | `title` | `string` | **yes** | Extract from the prompt quote (e.g. "'Welcome to my product'"). If absent, ask: "What should the title say?" |
 | `body` | `string` | no | Multi-line markdown OK. If the user said "some copy" without specifics, default to `"Get started in a few clicks"` and flag it for replacement. |
 | `media` | `{ type, url, alt? }` | no | `{ type: image, url, alt }` or `{ type: video, url }`. If the user said "placeholder image" without a URL, default `type: image`, `url: "https://placehold.co/600x400?text=Welcome"`, and note "(placeholder — swap for your brand image)". For an in-house asset, offer `POST /v1/cdnUpload` (see `rest-endpoints.md` §CDN). |
-| `primaryButton` | `{ title, action }` | no | `action` is one of the v2 CTA enum values (see `yaml-spec.md` §"CTA `action` enum"). If the user said "Take a tour" or similar, this CTA links to *another flow* — set `action: false` (non-forwarding) and **record the target tour's slug** for the link-flows recipe (Task 18 / `recipes/link-flows.md`) to wire up the `onPrimary` React handler (per **D12 revised**). Default title if unspecified: `"Get started"`. |
+| `primaryButton` | `{ title, action }` | no | `action` is one of the v2 CTA enum values (see `yaml-spec.md` §"CTA `action` enum"). If the user said "Take a tour" or similar, this CTA links to *another flow* — set `action: false` (non-forwarding) and **record the target tour's slug** for the link-flows recipe (Task 18 / `recipes/link-flows.md`) to wire up the `onPrimary` React handler (cross-flow CTAs are React handlers, not YAML). Default title if unspecified: `"Get started"`. |
 | `secondaryButton` | `{ title, action }` | no | Default: `{ title: "Maybe later", action: "flow.skip" }`. If the user explicitly said "no secondary button", omit it entirely. |
 | `slug` | `string` | **yes** (derived) | Derive from `title`: lowercase, kebab-case, strip non-alphanumerics. Then run the collision check below before using. |
 | `name` | `string` | no | Dashboard-facing name; default to `title`. |
@@ -61,7 +59,7 @@ curl -sS -w "\n---HTTP_STATUS:%{http_code}---\n" \
 ### Dogfood CTA note (Eric's acceptance test)
 
 When the user's prompt contains "Take a tour" (or any phrasing that implies "this CTA starts *another flow*"), remember:
-- The YAML `action` enum operates only on the *containing* flow. There is **no** `action: flow.start:<other-slug>` value (confirmed in `yaml-spec.md` §"Cross-flow CTAs" and `sdk-react.md` §D12).
+- The YAML `action` enum operates only on the *containing* flow. There is **no** `action: flow.start:<other-slug>` value (confirmed in `yaml-spec.md` §"Cross-flow CTAs" and `sdk-react.md` §"Cross-flow CTAs").
 - This recipe sets `primaryButton.action: false` on the announcement, then hands off to `recipes/link-flows.md` (Task 18) after the tour is authored (via `recipes/create-tour.md`, Task 17) to attach an `onPrimary` React handler that calls `tour?.restart()`.
 
 Store the CTA's target-flow hint somewhere durable for the follow-up recipe — e.g. pass it as part of the Step 10 report or write it into `.frigade/skill.log` as a `pending_link` event.
@@ -128,7 +126,7 @@ steps:
 
 **Endpoint:** `POST /v1/flows` (per `rest-endpoints.md` §"POST /v1/flows/").
 
-**Prod confirmation gate (D09).** If `environment == "prod"`, per the `operations.md` `createFlow` row (`safe` in dev, `dangerous` in prod), emit the canonical confirmation:
+**Prod confirmation gate.** If `environment == "prod"`, per the `operations.md` `createFlow` row (`safe` in dev, `dangerous` in prod), emit the canonical confirmation:
 
 > About to create flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)
 
@@ -174,10 +172,10 @@ curl -sS -X POST "https://api3.frigade.com/v1/flows" \
 | `201` (or `200`) | Created | Extract `id` (numeric), `slug` (may differ from requested — e.g. if server auto-generated a `flow_<nanoid>` because your slug was malformed). Proceed to Step 4. |
 | `400` with "already exists" message | Slug collision (synthetic 409 per `errors.md` §409). | The Step-1 pre-check should have caught this; if it slipped through (race), bump the slug suffix (`-2`, `-3`) and retry **once** before surfacing to the user. |
 | `400` with array `message` (validation) | DTO rejected the body. Per `errors.md` §422: parse each entry, attempt one auto-correction if obvious (e.g. `type` case mismatch, stringified YAML instead of object, missing required field). Show the user a unified diff of the corrected body. Retry once. If still failing, halt and surface the raw messages. | Auto-correct common cases: uppercase `TYPE`, stray `data` object instead of string. Ask for input on anything non-obvious. |
-| `401` | Ownership/cross-env mismatch (per `errors.md` §401 / D28). | Halt. Tell the user: "The key appears to belong to a different environment than the resource. Swap key and retry." Do NOT auto-retry with the other env var. |
-| `403` | Bad/revoked/public key (per `errors.md` §403 / D28). | Halt. Link to dashboard `https://app.frigade.com/settings/api`. Route user back to `first-run-setup.md` Section 2.7 verification curl. |
+| `401` | Ownership/cross-env mismatch (per `errors.md` §401). | Halt. Tell the user: "The key appears to belong to a different environment than the resource. Swap key and retry." Do NOT auto-retry with the other env var. |
+| `403` | Bad/revoked/public key (per `errors.md` §403). | Halt. Link to dashboard `https://app.frigade.com/settings/api`. Route user back to `first-run-setup.md` Section 2.7 verification curl. |
 | `422` | Rare; treat as 400-array (per `errors.md` §422). | Same handling as 400 array. |
-| `429` | MAU cap (per `errors.md` §429 / D29). | Halt with "no retry will help; upgrade at `https://app.frigade.com/settings/billing`." |
+| `429` | MAU cap (per `errors.md` §429). | Halt with "no retry will help; upgrade at `https://app.frigade.com/settings/billing`." |
 | `5xx` / network error | Transient or uncaught server error (per `errors.md` §5xx). | Retry once after 1s. If still failing, halt with timestamp. Do NOT proceed to Step 4 — partial composite failure handling applies (see bottom of recipe). |
 
 **On success**, extract from the response:
@@ -185,7 +183,7 @@ curl -sS -X POST "https://api3.frigade.com/v1/flows" \
 - `slug` — the server-accepted slug; prefer this over the client-sent one (the server may auto-generate if the client-sent slug was malformed).
 - Dashboard URL: `https://app.frigade.com/flows/<slug>`.
 
-Log the success to `.frigade/skill.log` (per **D17**) with `Authorization` header redacted.
+Log the success to `.frigade/skill.log` with `Authorization` header redacted.
 
 ---
 
@@ -261,7 +259,7 @@ Detect package manager by lockfile presence (stop at the first match):
 
 Run via Bash, in the directory that holds the relevant `package.json` (the host app's dir in a monorepo, the repo root otherwise). Use `run_in_background` to avoid blocking on slow installs — poll with `Monitor` if needed.
 
-**On failure** (non-zero exit, network error, resolver error): surface stderr to the user verbatim, halt; do NOT proceed to Steps 6–7. Log the failure per **D17** (redact any tokens in the npm output — rare but possible with private registries). The flow still exists in Frigade — report "flow created but install failed at Step 5" per the partial-failure template at the bottom.
+**On failure** (non-zero exit, network error, resolver error): surface stderr to the user verbatim, halt; do NOT proceed to Steps 6–7. Log the failure to `.frigade/skill.log` (redact any tokens in the npm output — rare but possible with private registries). The flow still exists in Frigade — report "flow created but install failed at Step 5" per the partial-failure template at the bottom.
 
 **Idempotency.** If the project already has `@frigade/react` in `dependencies` (check `package.json`), skip the install — just confirm and move on. Do NOT re-install or auto-upgrade without the user's say-so (breaking-change risk).
 
@@ -269,7 +267,7 @@ Run via Bash, in the directory that holds the relevant `package.json` (the host 
 
 ## Step 6 — Ensure provider is mounted
 
-Per the framework adapter picked in Step 4. This step, plus Step 7, plus Step 8 compose one **atomic code-edit batch** (per **D16**): take snapshots of every file you're about to edit; if any edit fails, revert all prior edits in the batch.
+Per the framework adapter picked in Step 4. This step, plus Step 7, plus Step 8 compose one **atomic code-edit batch**: take snapshots of every file you're about to edit; if any edit fails, revert all prior edits in the batch.
 
 ### App Router (see `reference/next-app-router.md`)
 
@@ -383,7 +381,7 @@ Per the framework adapter picked in Step 4. This step, plus Step 7, plus Step 8 
 
 Follow the inline template in Step 4. Edit `src/main.tsx` / `src/index.tsx` to mount `<FrigadeProviders>` around `<App />`.
 
-**Public key source (all frameworks):** `process.env.NEXT_PUBLIC_FRIGADE_API_KEY` for Next, `import.meta.env.VITE_FRIGADE_API_KEY` for Vite, `process.env.REACT_APP_FRIGADE_API_KEY` for CRA. Per **D07**, the **private** key (`FRIGADE_API_KEY_SECRET`) **must never** appear in any client-reachable file — only in `.env.local` where the skill reads it for REST calls. If you catch yourself about to reference the private key from a component, stop.
+**Public key source (all frameworks):** `process.env.NEXT_PUBLIC_FRIGADE_API_KEY` for Next, `import.meta.env.VITE_FRIGADE_API_KEY` for Vite, `process.env.REACT_APP_FRIGADE_API_KEY` for CRA. The **private** key (`FRIGADE_API_KEY_SECRET`) **must never** appear in any client-reachable file — only in `.env.local` where the skill reads it for REST calls. If you catch yourself about to reference the private key from a component, stop.
 
 ---
 
@@ -475,9 +473,9 @@ For **plain React** (Step 4 fallback), use the appropriate public-key var name (
 
 ---
 
-## Step 9 — Ask to start the dev server (D14)
+## Step 9 — Ask to start the dev server
 
-Prompt the user with a single yes/no (per **D14**, never auto-start):
+Prompt the user with a single yes/no (never auto-start):
 
 > Start the dev server now (`npm run dev` / `yarn dev` / `pnpm dev` / `bun dev`) so you can see the announcement at http://localhost:3000? (y/n)
 
@@ -490,7 +488,7 @@ Command picker (same lockfile logic as Step 5):
 | `bun.lockb` | `bun dev` |
 | default | `npm run dev` |
 
-- **Yes** → run via Bash with `run_in_background: true`. Report: "Dev server started. Open http://localhost:3000 in your browser — the announcement should appear." If a port collision occurs, surface the error and hand back without killing processes (D14 — dev server lifecycle is out of scope for auto-recovery, per `errors.md` §"Partial failure rules" rule 5).
+- **Yes** → run via Bash with `run_in_background: true`. Report: "Dev server started. Open http://localhost:3000 in your browser — the announcement should appear." If a port collision occurs, surface the error and hand back without killing processes (dev server lifecycle is out of scope for auto-recovery, per `errors.md` §"Partial failure rules" rule 5).
 - **No** → report: "Run `<dev command>` when you're ready; the announcement will appear at http://localhost:3000."
 
 ---
@@ -529,13 +527,13 @@ Log the `create-announcement:success` event to `.frigade/skill.log` with operati
 
 ---
 
-## Partial-failure handling (D16)
+## Partial-failure handling
 
 Use the template below **verbatim** when any step between 3 and 7 fails. This is the canonical shape from `errors.md` §"Reporting partial failures".
 
 ### Rules
 
-1. **Frigade state is preserved.** If Step 3 succeeded and any of Steps 4–7 failed, the flow exists in Frigade. Do **not** `DELETE /v1/flows/:id` as silent recovery (per **D16** rule 4 and `errors.md` §"Partial failure rules" rule 2). Let the user decide.
+1. **Frigade state is preserved.** If Step 3 succeeded and any of Steps 4–7 failed, the flow exists in Frigade. Do **not** `DELETE /v1/flows/:id` as silent recovery (per `errors.md` §"Partial failure rules" rule 2). Let the user decide.
 2. **Code-edit batches are atomic.** Steps 6–7 (and the parts of Step 8 that touch files) form one atomic batch. Snapshot every file before its first edit; if any edit in the batch fails, revert all file edits in the batch to their pre-batch state. Package installs (Step 5) are NOT rolled back — they're cheap to keep and safe (adding `@frigade/react` to `package.json` breaks nothing).
 3. **Idempotency on retry.** A follow-up "retry code wiring only" invocation re-runs the Step 1 slug existence check (the flow should still exist), skips Steps 3 and 5 (already complete), and re-reads file state from disk before re-attempting Steps 6–7. Do NOT trust a stale before-state cache.
 4. **Never destructive without confirmation.** The recovery offer includes a `DELETE /v1/flows/<id>` option only as an explicit choice, and the skill emits the canonical `Flow delete` confirmation from `operations.md` before acting.
@@ -580,7 +578,7 @@ All three options must be offered; (3) is always available per `errors.md` §"Re
 - `title = "Welcome to my product"` (from quoted substring)
 - `body = "Get started in a few clicks"` (user said "some copy" without specifics → default + flag for user to replace)
 - `media.url = "https://placehold.co/600x400?text=Welcome"` (user said "placeholder image" → default; flag "swap for your brand image")
-- `primaryButton = { title: "Take a tour", action: "false" }` (user said "Take a tour" → cross-flow CTA; `action: false` per D12 revised; record target-tour hint for Task 18 / `recipes/link-flows.md`)
+- `primaryButton = { title: "Take a tour", action: "false" }` (user said "Take a tour" → cross-flow CTA; `action: false` because cross-flow CTAs are React handlers, not YAML; record target-tour hint for Task 18 / `recipes/link-flows.md`)
 - `secondaryButton = { title: "Maybe later", action: "flow.skip" }` (default)
 - `slug = "welcome-to-my-product"` (kebab-cased title)
 - `name = "Welcome to my product"` (default to title)

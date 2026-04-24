@@ -2,9 +2,9 @@
 
 **Promote a collection from dev to prod.** API-only. Calls the `syncRuleToProd` GraphQL mutation, which upserts the collection's metadata (name, description, cool-off, priority order, allowed component types) into the prod workspace, matching by slug. Flow associations are **not** transferred by this mutation — see "After promotion" below.
 
-Referenced decisions: **D02** (dashboard parity — mirrors the dashboard's "Promote to production" action), **D09** (prod writes require confirmation), **D17** (log to `.frigade/skill.log`), **D23** (each private key is environment-bound), **D28** (403 = bad key, 401 = ownership), **D31** (Collection = Rule in GraphQL).
+Note on naming: collections are called `Rule` in GraphQL; customer-facing language is always "collection".
 
-Unlike flow promotion (D26, client-orchestrated multi-call), collection promotion uses a single backend mutation that handles the dev→prod copy server-side. No orchestration is needed on the client.
+Unlike flow promotion (a client-orchestrated multi-call sequence), collection promotion uses a single backend mutation that handles the dev→prod copy server-side. No orchestration is needed on the client.
 
 Companion references: `reference/graphql-schema.md` §`syncRuleToProd`, `reference/operations.md` `syncRuleToProd` row.
 
@@ -36,7 +36,7 @@ Capture the matching collection's `id` (string — coerce with `Number(id)` for 
 
 If not found in dev: halt with *"Collection '<slug>' not found in dev. Create it first with `recipes/create-collection.md`."*
 
-## Step 3 — Confirmation (D09)
+## Step 3 — Confirmation
 
 `syncRuleToProd` is `dangerous` in prod per `operations.md`. Emit the canonical prompt:
 
@@ -59,11 +59,11 @@ The mutation is called against the DEV API using the DEV key — the backend han
 On success, capture `data.syncRuleToProd` — this is the prod-side collection. The slug matches the dev side.
 
 Error handling:
-- `401` → halt per **D28** (ownership/cross-env mismatch). Surface the error message verbatim.
-- `403` → halt per **D28** (bad/revoked dev key); route user to `first-run-setup.md` §2.7.
+- `401` → halt (ownership/cross-env mismatch). Surface the error message verbatim.
+- `403` → halt (bad/revoked dev key); route user to `first-run-setup.md` §2.7.
 - `errors[]` in body → surface the messages verbatim and halt; do NOT retry automatically (the backend owns idempotency).
 
-Log `promote-collection-to-prod:server-synced` to `.frigade/skill.log` per **D17** with: dev id, slug, env=prod (the target). Redact Authorization.
+Log `promote-collection-to-prod:server-synced` to `.frigade/skill.log` with: dev id, slug, env=prod (the target). Redact Authorization.
 
 ## Step 5 — Verify prod has the collection
 

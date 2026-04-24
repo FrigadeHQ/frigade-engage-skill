@@ -1,16 +1,14 @@
 # Recipe: Promote to Prod
 
-**Cross-environment flow promotion recipe.** Given one or more flows that exist in the dev workspace, copy their content into the sibling prod workspace — creating the prod flow on first promotion, updating it on subsequent promotions, and matching the dev flow's active status. Per **D26**, this is a client-orchestrated **multi-call sequence** — the Frigade API has no single `POST /v1/flows/:slug/promote` endpoint. The dashboard's `frigade-web/src/components/dialogs/dialog-copy-flow-to-prod.tsx` is the canonical implementation; this recipe reproduces its call pattern with private API keys.
+**Cross-environment flow promotion recipe.** Given one or more flows that exist in the dev workspace, copy their content into the sibling prod workspace — creating the prod flow on first promotion, updating it on subsequent promotions, and matching the dev flow's active status. This is a client-orchestrated **multi-call sequence** — the Frigade API has no single `POST /v1/flows/:slug/promote` endpoint. The dashboard's `frigade-web/src/components/dialogs/dialog-copy-flow-to-prod.tsx` is the canonical implementation; this recipe reproduces its call pattern with private API keys.
 
 Because this recipe crosses environments, partial failures can leave hybrid state — a prod flow that exists without the dev side knowing about the pair, for example. The recipe is explicit about which failure modes are recoverable and how.
-
-Referenced decisions: **D09** (two-tier safety — prod writes are `dangerous`), **D13** (committed workspace marker), **D16** (preserve upstream state on partial failure; no silent destructive recovery), **D17** (log every cross-env step to `.frigade/skill.log`), **D23** (each private key is environment-bound), **D26** (dev→prod promotion is a client-orchestrated multi-call; canonical dashboard source is `dialog-copy-flow-to-prod.tsx`), **D28** (403 = bad key, 401 = ownership).
 
 Companion refs:
 - `recipes/first-run-setup.md` — pre-condition state check (Section 1), prod-key onboarding (Section 5.3).
 - `reference/rest-endpoints.md` — `GET /v1/flows/:id`, `POST /v1/flows/`, `PUT /v1/flows/:numericFlowId`, `POST /v1/flows/:id/versions`, `PUT /v1/flows/:id/activate`, `DELETE /v1/flows/:numericFlowId` contracts.
-- `reference/operations.md` — `promoteFlow` safety row (`n/a` in dev, `dangerous` in prod); canonical confirmation prompt template "Dev → prod promotion (D26)".
-- `reference/errors.md` — §"Composite operation failures" and §"Partial failure rules" (D16); §401/403/404/409/5xx handling.
+- `reference/operations.md` — `promoteFlow` safety row (`n/a` in dev, `dangerous` in prod); canonical confirmation prompt template for dev → prod promotion.
+- `reference/errors.md` — §"Composite operation failures" and §"Partial failure rules"; §401/403/404/409/5xx handling.
 - `frigade-web/src/components/dialogs/dialog-copy-flow-to-prod.tsx` — canonical client orchestration. Two paths: **Overwrite existing** (`PUT /v1/flows/<prod-id>` with dev's content) and **Create new draft** (`POST /v1/flows/<prod-active-id>/versions` → `PUT /v1/flows/<new-draft-id>`). This recipe defaults to **Overwrite** — see Step 4 for the rationale.
 - `frigade-web/src/components/buttons/dropdown-flow-actions.tsx` — `copyToProdFromScratch` path, the canonical first-time-copy call (`POST /v1/flows` with `active: false`).
 
@@ -26,13 +24,13 @@ Companion refs:
    If `FRIGADE_API_KEY_SECRET_PROD` is absent, halt with:
    > Prod keys aren't set up for this repo. Run `first-run-setup.md` to add them (Section 5.3 will resume prod-key onboarding), then re-try the promotion.
 
-   Don't proceed. Never use the dev key against the prod base URL or vice versa — each key is organization-bound per **D23** and will 401/403 if mismatched.
+   Don't proceed. Never use the dev key against the prod base URL or vice versa — each key is organization-bound and will 401/403 if mismatched.
 
 3. **Source flow(s) exist in dev.** The recipe verifies this per-flow in Step 1. If the user asks to promote a slug that doesn't exist in dev, halt with a list of nearest matches (see `errors.md` §404).
 
 4. **Never paste private keys into tool-call arguments.** All curls interpolate `$FRIGADE_API_KEY_SECRET` / `$FRIGADE_API_KEY_SECRET_PROD` from the shell. The raw key values must not appear in the transcript, the skill log, or any emitted file.
 
-If any pre-condition fails, halt with a clear pointer and do not issue any API calls. Log a `promote-to-prod:precondition-failed` event per **D17**.
+If any pre-condition fails, halt with a clear pointer and do not issue any API calls. Log a `promote-to-prod:precondition-failed` event to `.frigade/skill.log`.
 
 ---
 
@@ -110,8 +108,8 @@ Interpretation (per `errors.md`):
 |---|---|
 | `200` | Record fields as above. Proceed. |
 | `404` | Halt for this flow. Offer nearest-match list from `GET /v1/flows/?limit=500` (per `errors.md` §404). Do not batch-abort — the other selected flows are still candidates. |
-| `401` | Ownership/cross-env mismatch per **D28**. Halt the whole recipe and explain. |
-| `403` | Bad/revoked dev key per **D28**. Halt; route user to `first-run-setup.md` Section 2.7 verification. |
+| `401` | Ownership/cross-env mismatch. Halt the whole recipe and explain. |
+| `403` | Bad/revoked dev key. Halt; route user to `first-run-setup.md` Section 2.7 verification. |
 | `5xx` / network | Retry once after 1s; if still failing, halt. |
 
 ### 1.4 — Classify CREATE vs UPDATE per flow
@@ -149,13 +147,13 @@ curl -sS -w "\n---HTTP_STATUS:%{http_code}---\n" \
 
 ---
 
-## Step 2 — Batch confirmation (D09)
+## Step 2 — Batch confirmation
 
-Emit a **single consolidated confirmation prompt** covering the whole batch, per **D09** batch-confirmation rules (`operations.md` §"Batch confirmations — one prompt per operation-target batch"). Do NOT per-flow confirm — one prompt for the whole list keeps friction low while still making the side effects explicit.
+Emit a **single consolidated confirmation prompt** covering the whole batch, per `operations.md` §"Batch confirmations — one prompt per operation-target batch". Do NOT per-flow confirm — one prompt for the whole list keeps friction low while still making the side effects explicit.
 
 ### 2.1 — Confirmation template
 
-Compose the prompt. Use the canonical "Dev → prod promotion (D26)" shape from `operations.md`, extended to name each flow's path:
+Compose the prompt. Use the canonical dev → prod promotion shape from `operations.md`, extended to name each flow's path:
 
 ```
 About to promote flows to production:
@@ -180,7 +178,7 @@ Confirm? (y/n)
 
   Log a `promote-to-prod:aborted-by-user` event. Return to the caller.
 
-Per **D09** there is no "remember yes for this session" shortcut — every batch gets a fresh explicit confirmation.
+There is no "remember yes for this session" shortcut — every batch gets a fresh explicit confirmation.
 
 ### 2.3 — Note on no partial confirmation
 
@@ -255,8 +253,8 @@ Response handling (per `errors.md`):
 | `400` "already exists" | Synthetic 409 — Step 1.5 should have caught this, but if it slipped through, treat as an orphan-pair situation (Step 5.1). |
 | `400` array message | DTO validation. Parse each entry; attempt one auto-correction (common: a `type` value that ended up as a lowercase string, or `data` passed as an object instead of a string). Show the diff and retry once. |
 | `401` | Ownership/cross-env — the prod key somehow doesn't belong to the expected prod workspace. Halt. |
-| `403` | Bad/revoked prod key per **D28**. Halt; route user to re-verify `FRIGADE_API_KEY_SECRET_PROD`. |
-| `429` | MAU cap (prod org). Halt; no retry per **D29**. |
+| `403` | Bad/revoked prod key. Halt; route user to re-verify `FRIGADE_API_KEY_SECRET_PROD`. |
+| `429` | MAU cap (prod org). Halt; no retry will help — surface the upgrade link. |
 | `5xx` / network | Retry once after 1s. On second failure, halt with timestamp. |
 
 Log the `promote-to-prod:create-prod-flow-ok` event (or `...:create-prod-flow-failed`) with dev slug, dev `modifiedAt` SHA (stable input hash — see 4.4), response status, new prod id on success. Redact the Authorization header.
@@ -411,9 +409,9 @@ On any assertion failure, log a `promote-to-prod:verify-mismatch` event and surf
 
 ---
 
-## Step 5 — Partial-failure handling (D16)
+## Step 5 — Partial-failure handling
 
-Per **D16** and `errors.md` §"Composite operation failures": preserve upstream state on failure. Do NOT auto-delete prod flows. Report what happened; offer recovery; let the user decide.
+Per `errors.md` §"Composite operation failures": preserve upstream state on failure. Do NOT auto-delete prod flows. Report what happened; offer recovery; let the user decide.
 
 Two categories of partial failure matter here:
 
@@ -448,7 +446,7 @@ Recovery options:
 Which would you like? (1/2/3/4)
 ```
 
-All four options are always offered. Option (1) is the preferred recovery — it's idempotent and doesn't require destructive ops. Option (3) is the destructive recovery; it emits the canonical "Flow delete" confirmation from `operations.md` before running the DELETE, per **D16** rule 4.
+All four options are always offered. Option (1) is the preferred recovery — it's idempotent and doesn't require destructive ops. Option (3) is the destructive recovery; it emits the canonical "Flow delete" confirmation from `operations.md` before running the DELETE — destructive recovery always requires explicit confirmation.
 
 Do NOT continue to the next flow in the batch without user input on this flow. The batch continues after the user resolves this one (or explicitly says "skip this flow and continue the batch").
 
@@ -483,7 +481,7 @@ Option (3) is listed but explicitly flagged as "usually not worth it" — change
 
 ### 5.3 — Composite failure rules (recap)
 
-Per `errors.md` §"Partial failure rules" / **D16**:
+Per `errors.md` §"Partial failure rules":
 
 1. **Cross-env atomicity is NOT provided** — the recipe explicitly tells the user when state diverges. See 5.1.
 2. **Upstream Frigade state is preserved.** Never silently DELETE a created prod flow as recovery. Destructive recovery is always an explicit, confirmed choice (Option 3 in 5.1, emits the canonical "Flow delete" confirmation).
@@ -491,7 +489,7 @@ Per `errors.md` §"Partial failure rules" / **D16**:
    - Re-classifies each flow (Step 1.4). CREATE flows whose prod sibling now exists will reclassify to UPDATE. This is the "re-run after partial" recovery path — the recipe "heals" itself.
    - Re-verifies Step 1.5 for any remaining CREATE flows.
 4. **Never run destructive ops as silent recovery** (as (2)).
-5. **Log every cross-env step** to `.frigade/skill.log` per **D17**, with the `Authorization` header redacted. Required fields per entry: `timestamp`, `op` (e.g. `promote-to-prod:step-4.1-call-1`), `flowSlug`, `path` (`CREATE` / `UPDATE-draft` / `UPDATE-active`), `devId`, `prodId` (if known), `devSha` (4.4), `response.status`, `response.body` (minus the data YAML — too big; include a SHA of the response body's `data` field instead), `recovery` (what action was taken on failure).
+5. **Log every cross-env step** to `.frigade/skill.log`, with the `Authorization` header redacted. Required fields per entry: `timestamp`, `op` (e.g. `promote-to-prod:step-4.1-call-1`), `flowSlug`, `path` (`CREATE` / `UPDATE-draft` / `UPDATE-active`), `devId`, `prodId` (if known), `devSha` (4.4), `response.status`, `response.body` (minus the data YAML — too big; include a SHA of the response body's `data` field instead), `recovery` (what action was taken on failure).
 
 ---
 
@@ -541,7 +539,7 @@ Most warnings are benign normalization. Surface them anyway so the user can sani
 
 ### 6.5 — Log the success
 
-Append a `promote-to-prod:success` event per flow to `.frigade/skill.log` (per **D17**) with: slug, path, devId, prodId, devSha, `active` final state, prod URL, Authorization redacted.
+Append a `promote-to-prod:success` event per flow to `.frigade/skill.log` with: slug, path, devId, prodId, devSha, `active` final state, prod URL, Authorization redacted.
 
 If the batch was partial, the per-flow failure events from Step 5 already went in the log; append a final `promote-to-prod:batch-complete` summary event with counts (total, successful, failed) and the list of failed slugs.
 
@@ -650,6 +648,6 @@ Notes surfaced during recipe authoring that aren't obvious from the surface API 
 - **Version numbers are not promoted.** Each environment's flow has its own version counter. A dev flow at `version: 5` promoting into prod may create a prod flow at `version: 1` (CREATE) or increment prod's own counter (UPDATE). Do not try to align versions across envs — it will break the server's bookkeeping.
 - **Activation with no draft throws 500** per `rest-endpoints.md` §"PUT /v1/flows/:id/activate" ("If no draft exists for the flow id you pass, the service throws"). This is why Step 4.2's activation call runs against `productionDraftFlowId` only (not `productionActiveFlowId`) — the active row has no draft to publish. The UPDATE-active + dev-active case relies on the in-place PUT leaving the flow active; no separate activate is needed or possible.
 - **Cross-env partial state is the highest-risk failure mode.** A POST-then-activate pair where only the POST succeeds leaves an orphan draft in prod. The recipe's Step 5.1 explicitly surfaces this as a named state with four recovery options, three of which are non-destructive (preferred).
-- **`403` on the prod side mid-sequence after `200` on the dev side** usually means the prod key is invalid/revoked; don't auto-retry with the dev key (that would cross-env-leak a write). Halt per **D28**.
+- **`403` on the prod side mid-sequence after `200` on the dev side** usually means the prod key is invalid/revoked; don't auto-retry with the dev key (that would cross-env-leak a write). Halt and route the user back to prod-key verification.
 - **`401` on the prod-side PUT against an id that came from dev's `internalData`** means the pairing points at a prod flow the prod key can't reach (e.g. the prod flow was moved to a different org, or the pairing info is stale by months). Step 4.2's 401 path halts and surfaces the cross-env mismatch — do not retry.
 - **Dashboard shows two buttons ("Overwrite existing" vs "Create new draft"); this recipe defaults to Overwrite.** That's the simpler and more idempotent path. The "Create new draft" variant (Step 4.2b) exists for careful rollouts but shouldn't be the default — users who want it will ask.

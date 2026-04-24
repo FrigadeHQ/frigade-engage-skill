@@ -2,8 +2,6 @@
 
 **Clear a user's flow completion state so they see one or more flows again from scratch.** Dogfood use case: Eric dismissed the welcome announcement while testing and wants to see it again without creating a new user. Can target a single flow (`"reset me on the welcome announcement"`) or every flow in the workspace (`"reset me across all flows"`).
 
-Referenced decisions: **D09** (dangerous ops emit canonical confirmation prompt; `resetUserFlowState` is `dangerous` in **both** dev and prod per `operations.md` — destructive regardless of environment), **D16** (partial-failure policy: in `all` mode each `DELETE` is an independent unit; continue-on-error is acceptable since there is no cross-op state to corrupt), **D17** (log to `.frigade/skill.log`), **D23** (environment is implicit in the key binding, not an argument), **D27** (no `GET /v1/me`; use REST alone), **D28** (403 = bad key, 401 = ownership).
-
 Companion refs:
 - `recipes/first-run-setup.md` — pre-condition state check (Section 1).
 - `reference/rest-endpoints.md` §"DELETE /v1/userFlowStates/:flowSlug/:userSlug" — the single-flow reset endpoint (private key). §"GET /v1/users?userId=..." — resolves `userId` → the Frigade-generated `user_...` slug that the reset endpoint requires. §"GET /v1/flows/" — lists all flows for the `all`-mode loop.
@@ -30,7 +28,7 @@ One more endpoint subtlety — the reset endpoint takes a **`userSlug`** (the Fr
 2. **Private key for the target environment is exported into the shell** that runs the `curl`s below. For dev: `FRIGADE_API_KEY_SECRET`. For prod: `FRIGADE_API_KEY_SECRET_PROD`. Typical preamble: `set -a; source .env.local; set +a`. Never paste the raw key into a tool-call argument; always interpolate `$FRIGADE_API_KEY_SECRET` / `$FRIGADE_API_KEY_SECRET_PROD` from the shell.
 3. **`userId` is known.** Either the user supplied it in the prompt ("reset user `eric-dogfood-test`"), or the context from a previous turn in this conversation contains it (e.g. the same `userId` used for `create-announcement` / `create-tour` dogfood tests). If the skill has no `userId` at hand, ask once: "Which `userId` should I reset? (same app-supplied ID you pass to `<Frigade.Provider userId=...>`)"
 
-If any pre-condition fails, halt with a clear pointer at the prerequisite and do not issue any DELETEs. Log a `reset-user:precondition-failed` event to `.frigade/skill.log` per **D17**.
+If any pre-condition fails, halt with a clear pointer at the prerequisite and do not issue any DELETEs. Log a `reset-user:precondition-failed` event to `.frigade/skill.log`.
 
 ---
 
@@ -42,7 +40,7 @@ Parse the triggering prompt. Fill these inputs, asking only for what's missing:
 |---|---|---|---|
 | `userId` | `string` | **yes** | Extract from the prompt (`"reset user eric-dogfood-test"`, `"reset me"` where Eric's dogfood userId is known from prior context). If absent and no conversational anchor, ask: "Which `userId` should I reset?" |
 | `flowSlug` | `string \| "all"` | **yes** | `all` for every flow in the workspace; otherwise a single flow slug like `welcome-to-my-product`. Default to single-flow mode when the prompt names a specific flow; default to `all` when the prompt says "all flows" / "everything" / "reset the user". When ambiguous (e.g. `"reset me so I can see it again"` with two flows in play), ask: "Reset across all flows or just one? (slug or `all`)" |
-| `environment` | `"dev" \| "prod"` | no | Default `dev`. If the user said "in prod", "production", or "live", set `prod`. The key binding carries the actual env — just pick the right private-key env var in Step 3 (**D23**). |
+| `environment` | `"dev" \| "prod"` | no | Default `dev`. If the user said "in prod", "production", or "live", set `prod`. The key binding carries the actual env — just pick the right private-key env var in Step 3. |
 
 ### 1.1 — Typical prompt shapes
 
@@ -55,7 +53,7 @@ Parse the triggering prompt. Fill these inputs, asking only for what's missing:
 
 ### 1.2 — Log the inputs
 
-Append to `.frigade/skill.log` (per **D17**) a `reset-user:start` event with: `userId`, `flowSlug` (or `"all"`), `environment`. Do NOT log the private key or the `Authorization` header value (per `errors.md` §Logging).
+Append to `.frigade/skill.log` a `reset-user:start` event with: `userId`, `flowSlug` (or `"all"`), `environment`. Do NOT log the private key or the `Authorization` header value (per `errors.md` §Logging).
 
 ---
 
@@ -77,17 +75,17 @@ Interpretation:
 |---|---|
 | `200` with `slug: "user_..."` | Record the slug. Proceed to Step 3. |
 | `404` | Halt. Tell user: "No user with `userId=<userId>` exists in `<env>`. Nothing to reset." Log a `reset-user:user-not-found` event. |
-| `401` | Ownership/cross-env mismatch per **D28** (possibly the `userId` belongs to the other environment's org). Halt; surface message. |
-| `403` | Bad/revoked key per **D28**. Halt; route to `first-run-setup.md` Section 2.7. |
+| `401` | Ownership/cross-env mismatch (possibly the `userId` belongs to the other environment's org). Halt; surface message. |
+| `403` | Bad/revoked key. Halt; route to `first-run-setup.md` Section 2.7. |
 | `5xx` / network | Retry once after 1s. If still failing, halt with timestamp in the log. |
 
 Record the `userSlug` (e.g. `user_xyz789`) for use in the DELETE URLs.
 
 ---
 
-## Step 3 — Confirmation (D09 — dangerous in BOTH envs)
+## Step 3 — Confirmation (dangerous in BOTH envs)
 
-`resetUserFlowState` is **dangerous regardless of environment** per `operations.md` (it destroys the user's progress data). Always confirm — even in dev. No silent escalation, no "remember yes for session" shortcut (per **D09 REVISIT**).
+`resetUserFlowState` is **dangerous regardless of environment** per `operations.md` (it destroys the user's progress data). Always confirm — even in dev. No silent escalation, no "remember yes for session" shortcut.
 
 ### 3.1 — Single-flow mode
 
@@ -152,8 +150,8 @@ Interpretation:
 | Status | Meaning | Action |
 |---|---|---|
 | `200` or `204` | UFS row deleted (or was already absent — the endpoint returns `200` with empty body either way; `NotFoundInterceptor` does NOT fire on DELETE per `rest-endpoints.md`) | Success. Proceed to Step 5. |
-| `401` | Cross-env ownership mismatch per **D28** | Halt; surface message. |
-| `403` | Bad/revoked key per **D28** | Halt; route to `first-run-setup.md`. |
+| `401` | Cross-env ownership mismatch | Halt; surface message. |
+| `403` | Bad/revoked key | Halt; route to `first-run-setup.md`. |
 | `5xx` / network | Retry once after 1s | If still failing, halt with timestamp in the log. |
 
 Log a `reset-user:single-delete` event with `userId`, `flowSlug`, `env`, `status` (Authorization redacted).
@@ -171,7 +169,7 @@ curl -sS -w "\n---HTTP_STATUS:%{http_code}---\n" \
 Per-iteration bookkeeping:
 - On `200` / `204`: append the slug to a `successes` list.
 - On `401` / `403`: **halt the whole loop** — these are auth failures that will repeat for every subsequent slug. Surface the error; report partial progress (whatever is in `successes` so far); do NOT continue.
-- On `5xx` / network: retry **this slug once** after 1s. If the retry also fails, append the slug to a `failures` list and **continue the loop** (per **D16** — each reset is independent, partial progress is acceptable in `all` mode). Do not halt.
+- On `5xx` / network: retry **this slug once** after 1s. If the retry also fails, append the slug to a `failures` list and **continue the loop** — each reset is independent, partial progress is acceptable in `all` mode. Do not halt.
 - On any other unexpected status: log it, append to `failures`, continue.
 
 Log a `reset-user:bulk-progress` event after the loop completes with the final `successes[]` and `failures[]` arrays and the env.
@@ -226,11 +224,11 @@ To retry the failures:
 
 ### 5.4 — Logging the outcome
 
-Log a `reset-user:success` event (single mode or all mode with zero failures) or `reset-user:partial-failure` event (all mode with ≥1 failure) to `.frigade/skill.log` per **D17**. Required fields: `userId`, `flowSlug` (or `"all"`), `environment`, `successes[]`, `failures[]` (may be empty), total count, timestamp. Redact the `Authorization` header on every request-logged entry.
+Log a `reset-user:success` event (single mode or all mode with zero failures) or `reset-user:partial-failure` event (all mode with ≥1 failure) to `.frigade/skill.log`. Required fields: `userId`, `flowSlug` (or `"all"`), `environment`, `successes[]`, `failures[]` (may be empty), total count, timestamp. Redact the `Authorization` header on every request-logged entry.
 
 ---
 
-## Partial-failure handling (D16)
+## Partial-failure handling
 
 ### Single-flow mode
 
@@ -238,7 +236,7 @@ No partial-failure surface: either the one DELETE succeeds (→ Step 5.1) or it 
 
 ### All-flows mode
 
-Per `errors.md` §"Composite operation failures" and **D16**: each DELETE is its own atomic unit with no cross-operation state. On a mid-loop failure:
+Per `errors.md` §"Composite operation failures": each DELETE is its own atomic unit with no cross-operation state. On a mid-loop failure:
 
 - **Auth errors (401/403)** halt the loop immediately — those are not "partial" in a recoverable sense; every subsequent DELETE will fail identically. Surface the error and list the slugs already reset.
 - **5xx / network on a specific slug** records a failure for that slug, then **continues** the loop. The user sees an exact successes/failures breakdown at the end.

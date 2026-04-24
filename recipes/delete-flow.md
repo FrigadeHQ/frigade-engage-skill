@@ -10,7 +10,7 @@ Follows the same shape as `reset-user.md` (confirm-then-delete, simple destructi
 - Endpoint is `DELETE /v1/flows/:numericFlowId` (not `DELETE /v1/userFlowStates/...`).
 - Path takes the **numeric** flow id, not the slug (per `rest-endpoints.md` §"DELETE /v1/flows/:numericFlowId"). Slug-to-id resolution is required: `GET /v1/flows/<slug>` → extract `id`.
 - **Deletes only the specific version**, not the slug. Other versions sharing the same slug remain. `FlowResponse` rows referencing the deleted flow become orphan history — they are NOT cascade-deleted.
-- If the flow is mounted in the host codebase, the `<Frigade.Announcement flowId="<slug>">` / `<Frigade.Tour flowId="<slug>">` tag will start silently failing (SDK 404s on the flow fetch). Optionally offer to also clean up the mount site as a follow-up — but per **D16** don't chain destructive code edits into a destructive API op without user opt-in.
+- If the flow is mounted in the host codebase, the `<Frigade.Announcement flowId="<slug>">` / `<Frigade.Tour flowId="<slug>">` tag will start silently failing (SDK 404s on the flow fetch). Optionally offer to also clean up the mount site as a follow-up — but don't chain destructive code edits into a destructive API op without user opt-in.
 
 ## API op
 See `reference/operations.md` §"Flow operations" → `deleteFlow` row.
@@ -34,7 +34,7 @@ Safety tag: **dangerous in both dev and prod** (destructive regardless of env). 
 4. `DELETE /v1/flows/<numericFlowId>` with the right env key. Response: `204 No Content` on success.
 5. Error handling per `reference/errors.md`:
    - `404` → already gone; treat as success (idempotent). Log and move on.
-   - `401` / `403` → halt per **D28**.
+   - `401` / `403` → halt and route to `first-run-setup.md` Section 2.7 for key re-verification.
    - `5xx` → retry once, then halt with timestamp.
 6. Optionally offer to clean up the mount site in the host codebase (search for `flowId="<slug>"` usages; ask "Delete the mount at `<file>:<line>` too? (y/n)"). Don't chain automatically.
 7. Report success; log `delete-flow:success` event with slug, version, env.

@@ -1,10 +1,8 @@
 # Recipe: Create Tour
 
-**End-to-end create-a-tour recipe.** Takes the user's intent ("build a 3-step product tour around the app"), resolves DOM anchors in the host codebase (adding minimal attributes where needed), creates the TOUR flow in Frigade, then installs / verifies `@frigade/react`, wires the `<Frigade.Provider>`, and mounts `<Frigade.Tour>` in the framework-appropriate location. On partial failure (per **D16**), Frigade-side state is preserved and code-edit batches are rolled back atomically.
+**End-to-end create-a-tour recipe.** Takes the user's intent ("build a 3-step product tour around the app"), resolves DOM anchors in the host codebase (adding minimal attributes where needed), creates the TOUR flow in Frigade, then installs / verifies `@frigade/react`, wires the `<Frigade.Provider>`, and mounts `<Frigade.Tour>` in the framework-appropriate location. On partial failure, Frigade-side state is preserved and code-edit batches are rolled back atomically.
 
 Structurally parallel to `recipes/create-announcement.md` (commit `5772a24`) — read that first; this recipe deliberately does NOT duplicate the shared scaffolding (framework detection, SDK install, provider wiring, `.env.local` hygiene, dev-server prompt, partial-failure template). It only documents the tour-specific deltas.
-
-Referenced decisions: **D02** (full dashboard parity), **D04** (end-to-end wiring), **D07** (public key only in client code), **D09/D23/D26** (per-env safety tags per `operations.md`), **D12 revised** (cross-flow CTAs are React handlers — same rule as announcement), **D14** (ask before starting dev server), **D15** (single batch confirmation when adding DOM anchors — one prompt per flow, not per step), **D16** (atomic code edits, preserved Frigade state on partial failure), **D17** (log to `.frigade/skill.log`), **D21** (`.gitignore` hygiene), **D27** (no `GET /v1/me`), **D28** (403 = bad key, 401 = ownership).
 
 Companion refs:
 - `recipes/create-announcement.md` — **structural template** for the create half of this recipe. Step 4 (flow create), Step 5 (framework detection), Step 6 (install), Step 7 (provider mount), Step 10 (env hygiene), Step 11 (dev server), and the partial-failure template are all inherited from there. Do not duplicate that content; cross-reference and only note tour-specific deltas.
@@ -96,7 +94,7 @@ The skill's **input** shape uses the user-friendly names (`target`, `placement`,
 
 ### Cross-flow CTA note (Eric's dogfood loop)
 
-If the user's prompt says "…and when the announcement's 'Take a tour' button is clicked, it opens this tour," **that's a linkage job for `recipes/link-flows.md`** (Task 18). Do NOT try to express it in this tour's YAML — per **D12 revised** (same rule that applies to announcements), there is no `action: flow.start:<other-slug>` enum value.
+If the user's prompt says "…and when the announcement's 'Take a tour' button is clicked, it opens this tour," **that's a linkage job for `recipes/link-flows.md`** (Task 18). Do NOT try to express it in this tour's YAML — cross-flow CTAs are wired as React handlers (same rule that applies to announcements); there is no `action: flow.start:<other-slug>` enum value.
 
 This recipe focuses on authoring the tour. The link is wired later by `recipes/link-flows.md`, which reads the tour's slug and the announcement's flow id and emits an `onPrimary` handler on the announcement component that calls `tour?.restart()`. The worked example below reflects that handoff.
 
@@ -160,9 +158,9 @@ Then the step's `selector` becomes `[data-frigade-anchor="sidebar"]`.
 
 For each proposed addition, pick the **slug** by kebab-casing the step's target description: "create button" → `create-button`, "settings link" → `settings`, "sidebar" → `sidebar`. Ensure slug uniqueness across the tour's anchors (append `-2` if a collision).
 
-### 2.4 — Batch all proposed anchor additions, confirm ONCE (D15)
+### 2.4 — Batch all proposed anchor additions, confirm ONCE
 
-**Do NOT ask per step.** Per **D15** (single batch confirmation when adding DOM anchors, one ask per flow not per step), collect every proposed addition, render them as a single list, and ask one confirmation:
+**Do NOT ask per step.** Use a single batch confirmation when adding DOM anchors — one ask per flow, not per step. Collect every proposed addition, render them as a single list, and ask one confirmation:
 
 > I'll add these anchor attributes so the tour can target elements:
 >
@@ -266,7 +264,7 @@ Same rule as `recipes/create-announcement.md` Step 2: run a local YAML parse san
 
 Identical to `recipes/create-announcement.md` Step 3, with **one change**: `type: TOUR` instead of `type: ANNOUNCEMENT`.
 
-**Prod confirmation gate (D09).** If `environment == "prod"`, per the `operations.md` `createFlow` safety row, emit the canonical prompt:
+**Prod confirmation gate.** If `environment == "prod"`, per the `operations.md` `createFlow` safety row, emit the canonical prompt:
 
 > About to create flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)
 
@@ -296,7 +294,7 @@ Same response matrix as `recipes/create-announcement.md` Step 3 — see that tab
 
 On success, extract `id` (numeric) and `slug` (server-accepted — may differ from client-sent if the server auto-rewrote a malformed slug). Dashboard URL: `https://app.frigade.com/flows/<slug>`. Log to `.frigade/skill.log` with Authorization header redacted.
 
-**Important:** If Step 4 succeeds and any of Steps 5–9 later fails, the flow exists upstream; do **NOT** `DELETE /v1/flows/:id` as silent recovery — per `errors.md` §"Partial failure rules" and **D16**. Offer the standard 3-option recovery (retry wiring / delete + restart / leave as-is) in the partial-failure report.
+**Important:** If Step 4 succeeds and any of Steps 5–9 later fails, the flow exists upstream; do **NOT** `DELETE /v1/flows/:id` as silent recovery — per `errors.md` §"Partial failure rules". Offer the standard 3-option recovery (retry wiring / delete + restart / leave as-is) in the partial-failure report.
 
 ---
 
@@ -445,7 +443,7 @@ This is the biggest Tour-vs-Announcement mounting asymmetry: an announcement *ca
 
 ## Step 9 — Apply anchor edits (if any from Step 2.4)
 
-If Step 2.4 confirmed a batch of anchor additions, **apply them now** — not in Step 2. This keeps all file-edit side effects in the code-emission phase and lets us roll back atomically (per **D16**) if Step 7 or Step 8 fails.
+If Step 2.4 confirmed a batch of anchor additions, **apply them now** — not in Step 2. This keeps all file-edit side effects in the code-emission phase and lets us roll back atomically if Step 7 or Step 8 fails.
 
 ### 9.1 — Snapshot first
 
@@ -468,7 +466,7 @@ old_string: '<aside className="sidebar">'
 new_string: '<aside className="sidebar" data-frigade-anchor="sidebar">'
 ```
 
-If any `Edit` fails (non-unique `old_string`, file-locked, external mtime change), **stop the batch and revert every already-applied anchor edit** using the snapshots from 9.1 — per **D16** rule 2 (code-edit batches are atomic). Surface the failure in the partial-failure report.
+If any `Edit` fails (non-unique `old_string`, file-locked, external mtime change), **stop the batch and revert every already-applied anchor edit** using the snapshots from 9.1 — code-edit batches are atomic. Surface the failure in the partial-failure report.
 
 ### 9.3 — Scope of the atomic batch
 
@@ -488,7 +486,7 @@ Same as `recipes/create-announcement.md` Step 8. If `.env.local` already has `NE
 
 ---
 
-## Step 11 — Ask to start the dev server (D14)
+## Step 11 — Ask to start the dev server
 
 Same as `recipes/create-announcement.md` Step 9. Single yes/no prompt:
 
@@ -541,13 +539,13 @@ NEXT: wire the trigger — the tour is authored but needs to be started by <trig
   Run `recipes/link-flows.md` to emit the React handler on <triggering flow slug> that calls tour.restart() when the button is clicked.
 ```
 
-Log the `create-tour:success` event to `.frigade/skill.log` per **D17** with: op name, flow id/slug, number of steps, list of files touched (provider, mount, anchor files), environment. Redact the `Authorization` header and any raw keys.
+Log the `create-tour:success` event to `.frigade/skill.log` with: op name, flow id/slug, number of steps, list of files touched (provider, mount, anchor files), environment. Redact the `Authorization` header and any raw keys.
 
 ---
 
-## Partial-failure handling (D16)
+## Partial-failure handling
 
-Use the partial-failure template **verbatim** from `recipes/create-announcement.md` §"Partial-failure handling (D16)". Tour-specific failure points:
+Use the partial-failure template **verbatim** from `recipes/create-announcement.md` §"Partial-failure handling". Tour-specific failure points:
 
 - **Step 2.4 (batch confirmation)** — user said `n`. No flow created, no files edited. Report "Aborted before creation"; nothing to roll back.
 - **Step 4 (POST /v1/flows)** — see `errors.md` handling table. On 5xx, retry once; on persistent failure, halt. No files touched yet.
@@ -616,7 +614,7 @@ Log the `create-tour:partial-failure` event to `.frigade/skill.log`: step number
    - "create button" → `<button>New</button>` in `app/components/Sidebar.tsx:22`. No existing id or test id. **Propose:** add `data-frigade-anchor="create-button"`.
    - "settings link" → `<Link href="/settings">` in `app/components/Header.tsx:30`. No existing test id. **Propose:** add `data-frigade-anchor="settings"`.
 
-6. **Single batch confirmation (D15):**
+6. **Single batch confirmation:**
 
    > I'll add these anchor attributes so the tour can target elements:
    >   1. `app/components/Sidebar.tsx:8` — add `data-frigade-anchor="sidebar"` to the `<aside>` element

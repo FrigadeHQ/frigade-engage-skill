@@ -150,7 +150,7 @@ Remove a specific user from a user group (does not delete the user or the group)
 - Returns: `ExternalizedUserGroup` (the updated group)
 - Resolver: `UserGroupsResolver.removeUserFromUserGroup`
 
-> Note: the `Rule` entity in this schema is product-facing known as **Collection** (see `decisions.md` D31). All customer-facing language in recipes and prompts uses "collection"; the GraphQL schema retains the legacy `Rule` name.
+> Note: the `Rule` entity in this schema is product-facing known as **Collection**. All customer-facing language in recipes and prompts uses "collection"; the GraphQL schema retains the legacy `Rule` name.
 
 ### createRule
 Create a new rule/collection. `coolOffPeriod` defaults to 2 and `coolOffUnit` to `DAYS` if omitted.
@@ -350,7 +350,7 @@ Source: `src/users/users.interface.ts`.
 - Nested: `user: ExternalizedUser` via `@ResolveField` on `TrackingEventsResolver`
 
 ### ExternalizedRule (`rule`)
-Source: `src/rules/rules.interface.ts`. Backing table: `Rule` in Prisma schema. Note: product-facing known as **Collection** (see `decisions.md` D31); the GraphQL type retains the legacy `Rule` name.
+Source: `src/rules/rules.interface.ts`. Backing table: `Rule` in Prisma schema. Note: product-facing known as **Collection**; the GraphQL type retains the legacy `Rule` name.
 - `id: ID` — serialized as string over the wire; coerce to number client-side when comparing
 - `organizationId: Int`, `slug: String`
 - `name: String`, `description: String`
