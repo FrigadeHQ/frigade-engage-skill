@@ -6,7 +6,7 @@ Companion refs: `graphql-schema.md` (full GraphQL surface), `rest-endpoints.md` 
 
 ## Safety model recap (D09)
 
-- **Dev = open.** Almost every op is `safe` in dev, including writes that would be `dangerous` in prod (create/update/publish flow, rule CRUD, webhook/integration CRUD). The exceptions are ops that are destructive *regardless of environment* — user delete, user reset, user-group delete, remove-from-group — those are `dangerous` in both.
+- **Dev = open.** Almost every op is `safe` in dev, including writes that would be `dangerous` in prod (create/update/publish flow, collection CRUD, webhook/integration CRUD). The exceptions are ops that are destructive *regardless of environment* — user delete, user reset, user-group delete, remove-from-group, collection delete — those are `dangerous` in both.
 - **Prod = two-tier.** Reads are `safe`. Anything that (a) writes to prod state, (b) is destructive, or (c) crosses environments (dev→prod promotion) is `dangerous`. The skill MUST emit a confirmation prompt and wait for `y`/`yes` before running.
 - **No `forbidden` class in v1.** If a composite operation feels too risky for a single confirmation, it decomposes into multiple `dangerous` confirmations rather than being outright disallowed.
 
@@ -98,15 +98,17 @@ Column "Surface" is `REST` or `GraphQL`; "Op" gives the HTTP path or GraphQL fie
 | deleteUserGroup | GraphQL | mutation `deleteUserGroup(id: Float!)` | **dangerous** | **dangerous** | graphql-schema.md |
 | removeUserFromUserGroup | GraphQL | mutation `removeUserFromUserGroup(...)` | **dangerous** | **dangerous** | graphql-schema.md — destructive membership change |
 
-### Rule operations (GraphQL-only)
+### Collection operations (GraphQL-only)
+
+The `Rule` GraphQL entity is surfaced to users as "collection" — operation names in the left column match the GraphQL field verbatim, but confirmation prompts and user-facing prose say "collection."
 
 | Operation | Surface | Op | Dev | Prod | Reference |
 |---|---|---|---|---|---|
-| listRules | GraphQL | query `rules(...)` | safe | safe | graphql-schema.md |
-| createRule | GraphQL | mutation `createRule(...)` | safe | **dangerous** | graphql-schema.md |
-| updateRules (bulk) | GraphQL | mutation `updateRules(rules: [...])` | safe | **dangerous** | graphql-schema.md |
-| deleteRule | GraphQL | mutation `deleteRule(id: Float!)` | **dangerous** | **dangerous** | graphql-schema.md — destructive regardless of env |
-| syncRuleToProd | GraphQL | mutation `syncRuleToProd(ruleId: Float!)` | n/a | **dangerous** | graphql-schema.md — prod-only direction (only meaningful when caller is a prod key with a dev sibling) |
+| rules (list collections) | GraphQL | query `rules(...)` | safe | safe | graphql-schema.md — read-only listing |
+| createRule | GraphQL | mutation `createRule(...)` | safe | **dangerous** | graphql-schema.md — creates a collection |
+| updateRules (bulk) | GraphQL | mutation `updateRules(rules: [...])` | safe | **dangerous** | graphql-schema.md — bulk update; flows are associated via the `flowIds` arg, not a separate endpoint |
+| deleteRule | GraphQL | mutation `deleteRule(id: Float!)` | **dangerous** | **dangerous** | graphql-schema.md — destructive regardless of env; deletes a collection |
+| syncRuleToProd | GraphQL | mutation `syncRuleToProd(ruleId: Float!)` | n/a | **dangerous** | graphql-schema.md — promotes a collection from dev to prod; prod-only direction (only meaningful when caller is a prod key with a dev sibling) |
 
 ### Webhook subscription operations (GraphQL-only)
 
@@ -204,12 +206,12 @@ All `dangerous` ops use these wordings. Use the closest matching template; fall 
   `"About to delete user-group '<groupId>' in <env>. Membership + tracking rows cascade; user rows are kept. Confirm? (y/n)"`
 - **Remove-from-group:**
   `"About to remove user '<userId>' from user-group '<groupId>' in <env>. Confirm? (y/n)"`
-- **Rule delete:**
-  `"About to delete rule '<name>' in <env>. Flows attached to this rule will lose the association. Confirm? (y/n)"`
-- **Rule create / update in prod:**
-  `"About to <create|update> rule '<name>' in prod. Confirm? (y/n)"`
-- **syncRuleToProd:**
-  `"About to promote rule '<name>' from dev to prod. Confirm? (y/n)"`
+- **Collection delete:**
+  `"About to delete collection '<name>' in <env>. Flows attached to this collection will lose the association. Confirm? (y/n)"`
+- **Collection create / update in prod:**
+  `"About to <create|update> collection '<name>' in prod. Confirm? (y/n)"`
+- **syncRuleToProd (collection promotion):**
+  `"About to promote collection '<name>' from dev to prod. Confirm? (y/n)"`
 - **Webhook subscription delete:**
   `"About to delete webhook subscription '<url>' in <env>. Outbound events will stop firing. Confirm? (y/n)"`
 - **Webhook create / update in prod:**
@@ -242,7 +244,7 @@ All confirmations are explicit — no silent escalation, no "remember yes for se
 ## "n/a" operations (rationale)
 
 - **`promoteFlow (dev → prod)` is `n/a` in dev** — direction is prod-bound; there's no "promote to dev" concept. If a recipe is running with a dev key and tries to promote, the skill aborts with "wrong-environment" before consulting confirmation.
-- **`syncRuleToProd` is `n/a` in dev** — same reason; only meaningful when called with a prod key against a dev-sibling rule.
+- **`syncRuleToProd` is `n/a` in dev** — same reason; only meaningful when called with a prod key against a dev-sibling collection.
 - **`getMe` is `n/a` in both** — handler isn't API-key-reachable (D27). The skill treats this as "not skill-reachable" and uses an alternative probe.
 - **`createApiKey` / `revokeApiKey` are `n/a` in both** — no public endpoint exists; dashboard-only.
 - **`graphqlIntrospection` is `n/a` in prod** — introspection is disabled in prod (D24). The skill falls back to the known-safe probe `{ rules(skip:0,take:1){ id } }` to sanity-check the prod schema.
