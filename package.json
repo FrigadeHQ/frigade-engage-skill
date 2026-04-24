@@ -1,0 +1,25 @@
+{
+  "name": "frigade-engage-skill",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Integration tests for the frigade-engage Claude Code skill.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:create": "vitest run tests/integration/create-flow.test.ts",
+    "test:promote": "vitest run tests/integration/promote-flow.test.ts",
+    "test:delete": "vitest run tests/integration/delete-flow.test.ts",
+    "test:prod-confirm": "vitest run tests/integration/prod-delete-confirm.test.ts",
+    "test:targeting": "vitest run tests/integration/update-targeting.test.ts",
+    "test:sweep": "tsx scripts/sweep.ts"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "@types/node": "^20.11.0",
+    "dotenv": "^16.4.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  }
+}
