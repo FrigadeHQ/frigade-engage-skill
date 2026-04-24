@@ -48,6 +48,9 @@ The authoritative list of operation names, their verbs, their targets, and their
 | Create an NPS survey | `recipes/create-nps-survey.md` |
 | Create a banner | `recipes/create-banner.md` |
 | Create a card | `recipes/create-card.md` |
+| Create a collection (and embed it in your app) | `recipes/create-collection.md` |
+| Add one or more flows to a collection | `recipes/add-flows-to-collection.md` |
+| Promote a collection dev → prod | `recipes/promote-collection-to-prod.md` |
 | Duplicate a flow | `recipes/duplicate-flow.md` |
 | Delete a flow | `recipes/delete-flow.md` |
 | Update a flow's YAML | `recipes/update-yaml.md` |
