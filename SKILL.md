@@ -1,6 +1,6 @@
 ---
 name: frigade-engage
-description: Build and manage Frigade Engage flows (announcements, tours, checklists, nudges, forms, banners, cards, NPS surveys) directly from Claude Code, including end-to-end wiring into React/Next.js codebases. Use when the user mentions Frigade, onboarding flows, product tours, checklists, announcements, or in-product guides.
+description: Build and manage Frigade Engage flows (announcements, tours, checklists, nudges, forms, banners, cards, NPS surveys) and collections directly from Claude Code, including end-to-end wiring into React/Next.js codebases. Use when the user mentions Frigade, onboarding flows, product tours, checklists, announcements, in-product guides, or flow collections (promoting, creating, or adding flows to a collection).
 version: 0.0.1
 authored-against:
   backend-app: d245b4fd
