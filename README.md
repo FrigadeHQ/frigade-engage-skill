@@ -69,3 +69,27 @@ Full model in [`SKILL.md`](SKILL.md) § "Safety model summary" and [`reference/o
 ## Why it's shaped this way
 
 See [`reference/decisions.md`](reference/decisions.md) for the full locked decisions log (D01–D35) covering scope, framework support, key storage, safety tiers, binding model, error semantics, and more.
+
+## Running the integration tests
+
+The repo ships with end-to-end integration tests (`tests/integration/`) that exercise the skill against a real Frigade test workspace. They're local-only — no CI.
+
+**Setup (one time):**
+
+1. Create a dedicated Frigade test workspace with both a dev and a prod organization.
+2. `cp .env.test.local.example .env.test.local`, then paste your `ANTHROPIC_API_KEY` and the four Frigade test keys.
+3. `npm install`
+
+**Run:**
+
+```sh
+npm test                     # all five test files
+npm run test:create          # create announcement + wire into Next.js
+npm run test:promote         # dev→prod promotion
+npm run test:delete          # delete dev flow (confirm required)
+npm run test:prod-confirm    # prod delete: decline + accept paths
+npm run test:targeting       # update targeting by user property
+npm run test:sweep           # delete all TEST-prefixed flows in both envs
+```
+
+Tests use title-prefixed flows (`TEST-<stamp>-...`) so leaked flows are identifiable. Each test's `afterEach` deletes flows it created; `npm run test:sweep` is a safety net for crashed runs.
