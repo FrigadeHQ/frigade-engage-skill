@@ -1,5 +1,23 @@
 import { query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { randomUUID } from 'node:crypto';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+/**
+ * When `FRIGADE_ENGAGE_TEST_DEBUG` is set to a file path, each SDK event is
+ * appended to that file as JSONL. Useful for diagnosing why a run produced no
+ * flow (e.g. the skill halted on a key prompt the harness didn't recognize).
+ */
+const DEBUG_LOG = process.env.FRIGADE_ENGAGE_TEST_DEBUG;
+function debugLog(ev: unknown): void {
+  if (!DEBUG_LOG) return;
+  try {
+    mkdirSync(dirname(DEBUG_LOG), { recursive: true });
+    appendFileSync(DEBUG_LOG, JSON.stringify(ev) + '\n');
+  } catch {
+    // ignore — debug log is best-effort
+  }
+}
 
 export interface ToolUse {
   name: string;
@@ -66,13 +84,14 @@ export async function runSkill(opts: RunSkillOptions): Promise<RunSkillResult> {
       options: {
         cwd: opts.cwd,
         settingSources: ['user'],
-        maxTurns: opts.maxTurns ?? 40,
+        maxTurns: opts.maxTurns ?? 80,
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
       },
     });
 
     for await (const message of session) {
+      debugLog({ t: Date.now(), kind: 'message', message });
       if (message.type === 'assistant') {
         for (const block of message.message.content) {
           if (block.type === 'text') {
@@ -80,6 +99,7 @@ export async function runSkill(opts: RunSkillOptions): Promise<RunSkillResult> {
             assistantText.push(text);
             finalResponse = text;
             const response = opts.onPrompt(text);
+            debugLog({ t: Date.now(), kind: 'assistantText', text, response });
             if (response !== null) {
               queue.push(makeUserMessage(response));
             }
@@ -88,6 +108,7 @@ export async function runSkill(opts: RunSkillOptions): Promise<RunSkillResult> {
               name: block.name,
               input: (block.input ?? {}) as Record<string, unknown>,
             });
+            debugLog({ t: Date.now(), kind: 'toolUse', name: block.name, input: block.input });
           }
         }
       } else if (message.type === 'result') {
