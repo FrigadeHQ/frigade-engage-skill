@@ -17,19 +17,20 @@ The skill manipulates your Frigade workspace via the public GraphQL + REST APIs,
 
 ## Install
 
-Drop this repo into your Claude Code skills directory:
+Clone the repo into your Claude Code skills directory:
 
 ```sh
-git clone <this repo> ~/.claude/skills/frigade-engage
+git clone https://github.com/FrigadeHQ/frigade-engage-skill.git ~/.claude/skills/frigade-engage
 ```
 
-Or symlink while you develop:
+Or, if you're working on the skill itself, symlink your checkout:
 
 ```sh
-ln -s "$(pwd)" ~/.claude/skills/frigade-engage
+git clone https://github.com/FrigadeHQ/frigade-engage-skill.git
+ln -s "$(pwd)/frigade-engage-skill" ~/.claude/skills/frigade-engage
 ```
 
-Claude Code picks it up on the next session. The skill auto-activates when the user mentions Frigade, onboarding flows, product tours, checklists, announcements, or in-product guides.
+Claude Code picks it up on the next session. The skill auto-activates when the user mentions Frigade, onboarding flows, product tours, checklists, collections, announcements, or in-product guides.
 
 ## First run
 
@@ -49,6 +50,8 @@ SKILL.md              — entry point (metadata + dispatch tables + hard rules)
 recipes/              — step-by-step playbooks for each user intent
 reference/            — API surface, SDK wiring, error handling, decisions
 examples/             — production-quality YAML examples per flow type
+tests/                — integration tests (local-only; see below)
+scripts/              — maintenance scripts (sweep leaked test flows)
 ```
 
 ## Framework support
@@ -83,13 +86,14 @@ The repo ships with end-to-end integration tests (`tests/integration/`) that exe
 **Run:**
 
 ```sh
-npm test                     # all five test files
-npm run test:create          # create announcement + wire into Next.js
-npm run test:promote         # dev→prod promotion
-npm run test:delete          # delete dev flow (confirm required)
-npm run test:prod-confirm    # prod delete: decline + accept paths
-npm run test:targeting       # update targeting by user property
-npm run test:sweep           # delete all TEST-prefixed flows in both envs
+npm test                        # all six test files
+npm run test:create             # create announcement + wire into Next.js
+npm run test:promote            # dev→prod promotion (flow)
+npm run test:delete             # delete dev flow (confirm required)
+npm run test:prod-confirm       # prod delete: decline + accept paths
+npm run test:targeting          # update targeting by user property
+npm run test:promote-collection # dev→prod promotion (collection)
+npm run test:sweep              # delete all TEST-prefixed flows in both envs
 ```
 
 Tests use title-prefixed flows (`TEST-<stamp>-...`) so leaked flows are identifiable. Each test's `afterEach` deletes flows it created; `npm run test:sweep` is a safety net for crashed runs.
