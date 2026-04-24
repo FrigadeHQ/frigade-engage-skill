@@ -11,6 +11,7 @@
     "test:promote": "vitest run tests/integration/promote-flow.test.ts",
     "test:delete": "vitest run tests/integration/delete-flow.test.ts",
     "test:prod-confirm": "vitest run tests/integration/prod-delete-confirm.test.ts",
+    "test:promote-collection": "vitest run tests/integration/promote-collection.test.ts",
     "test:targeting": "vitest run tests/integration/update-targeting.test.ts",
     "test:sweep": "tsx scripts/sweep.ts"
   },
