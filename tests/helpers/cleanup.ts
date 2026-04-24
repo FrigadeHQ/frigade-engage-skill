@@ -28,3 +28,31 @@ export class FlowTracker {
     this.tracked = [];
   }
 }
+
+interface TrackedCollection {
+  client: FrigadeClient;
+  id: number;
+  slug: string;
+}
+
+export class CollectionTracker {
+  private tracked: TrackedCollection[] = [];
+
+  track(client: FrigadeClient, collection: { id: number; slug: string }) {
+    this.tracked.push({ client, id: collection.id, slug: collection.slug });
+  }
+
+  async flushAll(): Promise<void> {
+    for (const c of this.tracked) {
+      try {
+        await c.client.deleteCollection(c.id);
+      } catch (e) {
+        // Collection may have been deleted by the skill already. Swallow
+        // 404/500 per the same contract as FlowTracker.
+        if (e instanceof Error && /-> (404|500)/.test(e.message)) continue;
+        console.warn(`Collection teardown failed for ${c.client.env}/${c.slug}:`, e);
+      }
+    }
+    this.tracked = [];
+  }
+}
