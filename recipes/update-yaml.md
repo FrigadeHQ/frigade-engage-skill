@@ -21,7 +21,7 @@ See `reference/operations.md` §"Flow operations" → `updateFlow` row.
 - Auth: `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `_PROD` for prod).
 
 ## Confirmation
-Safety tag: **safe** in dev, **dangerous** in prod. Canonical prod prompt: `"About to update flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"`.
+Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Editing a flow's YAML directly in prod is discouraged — emit the **prod steer** first (`operations.md` §"Prod is promote-only"): offer to update the YAML in dev and promote it, and require the typed override `edit prod directly` before proceeding. Only after the override do you fall through to the canonical prod prompt: `"About to update flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"`.
 
 ## Pre-conditions
 - `first-run-setup.md` Section 1 state-check passed.
@@ -34,7 +34,7 @@ Safety tag: **safe** in dev, **dangerous** in prod. Canonical prod prompt: `"Abo
 2. `GET /v1/flows/<slug>` → extract numeric `id`, current `data` string (YAML), current `name` / `type` / `targetingLogic` (for context only — we won't change them).
 3. Parse the current YAML; apply the user's requested changes; re-emit as a YAML string. Preserve step `id`s (warn if changing); preserve flow `type` (halt if the changes implicitly require a different type).
 4. Lint the new YAML locally (`yaml.safe_load`).
-5. **Prod confirmation gate** if `environment == "prod"`.
+5. **Prod steer + confirmation gate** if `environment == "prod"`: emit the prod steer first; on the typed override `edit prod directly`, fall through to the canonical prod confirmation. Absent the override, redirect to updating in dev + `promote-to-prod.md`.
 6. `PUT /v1/flows/<id>` with body `{ "data": "<new YAML>" }`. Response handling per `reference/errors.md` §400-array (validation) / §422 / §5xx.
 7. Re-fetch and verify the `data` round-trip matches (server may normalize; accept lossless round-trip).
 8. Report success; log `update-yaml:success` with slug, id, env, a content SHA. Point the user at the dashboard URL to eyeball.

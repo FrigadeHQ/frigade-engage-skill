@@ -22,15 +22,20 @@ authored-against:
 
 If the user's request looks entirely read-only ("what flows do I have?"), setup still runs — it's what proves we have credentials to read in the first place.
 
+## Two environments — the mental model
+
+Every Frigade workspace has two sibling environments, each with its own key pair: **dev** (`FRIGADE_API_KEY_SECRET` / `NEXT_PUBLIC_FRIGADE_API_KEY`) and **prod** (`..._SECRET_PROD` / `..._PROD`). They are separate Organization records — a flow in dev and its prod counterpart are distinct rows linked by a shared slug. **You build and iterate in dev; you ship to prod by promoting from dev.** The skill defaults to dev for everything and only ever touches prod when the user is explicitly promoting or has explicitly asked to operate in prod (see `recipes/first-run-setup.md` Section 5 for how the target env is resolved per call).
+
 ## Safety model summary
 
 - **Dev environment (default):** All operations run immediately. Fast iteration, low friction, no confirmation prompts.
-- **Prod environment:** Any operation tagged `dangerous` in `reference/operations.md` requires explicit confirmation (`"About to <verb> <target> in prod. Confirm? (y/n)"`) before executing.
+- **Prod is promote-only for flow & collection content.** The **only** sanctioned way to change a prod flow or collection is to make the change in dev and promote it (`recipes/promote-to-prod.md`, `recipes/promote-collection-to-prod.md`). Direct authoring in prod — creating, updating, publishing, or deactivating a flow or collection straight against the prod key — is **discouraged**. When a user asks for it, the skill **steers them to the dev→promote path** and proceeds only on an explicit typed override (`edit prod directly`). See `reference/operations.md` §"Prod is promote-only" for the exact steer template and the list of ops it covers.
+- **Prod environment (other writes):** Any operation tagged `dangerous` in `reference/operations.md` requires explicit confirmation (`"About to <verb> <target> in prod. Confirm? (y/n)"`) before executing.
 - **Destructive operations** (`delete-flow`, `reset-user`, `delete-user-group`, `delete-rule`, and others flagged in `reference/operations.md`) are tagged `dangerous` in **both** environments — confirmation is always required regardless of env.
 - **Batch confirmations:** One confirmation per operation batch, not per sub-item. Example: promoting 3 flows dev → prod = one confirmation covering all three, not three separate prompts.
 - **Confirmation canonical format:** `"About to <verb> <target> in <environment>. Confirm? (y/n)"`. Anything other than `y`/`yes` aborts cleanly — no partial state is left behind.
 
-The authoritative list of operation names, their verbs, their targets, and their `dangerous` flag is `reference/operations.md`. Always consult that file before emitting a confirmation prompt.
+The authoritative list of operation names, their verbs, their targets, their `dangerous` flag, and whether they trigger the prod steer is `reference/operations.md`. Always consult that file before emitting a confirmation or steer prompt.
 
 ## Dispatch table — recipes
 
@@ -90,6 +95,8 @@ The authoritative list of operation names, their verbs, their targets, and their
 6. **Confirmation prompts use the canonical format.** Exact wording: `"About to <verb> <target> in <environment>. Confirm? (y/n)"`. The verb and target come from the matching row in `reference/operations.md`. Anything other than `y`/`yes` aborts — no partial state, no "well I already did step 1".
 
 7. **Recipe-based execution.** For every user intent, consult the dispatch table, read the matched recipe end to end, then follow it. Do not improvise multi-step operations. If the matched recipe is a stub (short file, no concrete steps) and the user's request needs depth the stub doesn't cover, extend the pattern from the closest fully-authored recipe (`create-announcement.md`, `create-tour.md`, `link-flows.md`, `promote-to-prod.md`, `reset-user.md`, `first-run-setup.md`) and surface that you're extrapolating so the user can sanity-check.
+
+8. **Prod is promote-only; steer away from direct prod authoring.** Never create, update, publish, or deactivate a flow or collection *directly* against the prod key as a first move. When the resolved target env is `prod` and the op is authoring a flow or collection (not a read, not a promotion, not a destructive delete/reset — see the covered-ops list in `reference/operations.md` §"Prod is promote-only"), emit the **prod steer** first: explain that the change belongs in dev and should reach prod via promotion, offer to do exactly that, and require the explicit typed override `edit prod directly` before proceeding. `y`/`yes` alone does **not** satisfy this gate — the override phrase must be typed verbatim. The promotion recipes themselves (`promote-to-prod.md`, `promote-collection-to-prod.md`) are the sanctioned prod-write path and are **not** subject to the steer; they use the normal dev→prod confirmation.
 
 ## Framework support
 

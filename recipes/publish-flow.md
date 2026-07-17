@@ -21,7 +21,7 @@ See `reference/operations.md` §"Flow operations".
 - Auth: `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `_PROD` for prod).
 
 ## Confirmation
-Safety tag: **safe** in dev, **dangerous** in prod for both publish and deactivate (per `operations.md`).
+Safety tag: **safe** in dev, **`steer` → dangerous** in prod for both publish and deactivate (per `operations.md`). Publishing/deactivating directly in prod is discouraged — the sanctioned way to make a flow live in prod is to publish it in dev and promote it (`promote-to-prod.md` activates the prod sibling when the dev flow is active). Emit the **prod steer** first (`operations.md` §"Prod is promote-only") and require the typed override `edit prod directly`. Only after the override, fall through to the canonical prompt:
 - Publish canonical prompt: `"About to publish flow '<slug>' in prod. Users matching the targeting rules will begin seeing it. Confirm? (y/n)"`.
 - Deactivate canonical prompt: `"About to deactivate flow '<slug>' in prod. Users will stop seeing it on next session. Confirm? (y/n)"`.
 
@@ -55,6 +55,9 @@ Safety tag: **safe** in dev, **dangerous** in prod for both publish and deactiva
 User: "Publish the welcome announcement in prod."
 
 Claude's actions (abbreviated):
+- Target resolves to prod + authoring → **prod steer** first: "Publishing directly in prod is discouraged. The recommended path is to publish `welcome-to-my-product` in dev and promote it (promote-to-prod.md). Want me to do that instead? If you genuinely need to publish in prod directly, type exactly: `edit prod directly`."
+  - **Common case — user takes the dev→promote path:** publish in dev, then run `promote-to-prod.md` (which activates the prod sibling because the dev flow is now active). Done.
+  - **User types `edit prod directly`:** override accepted; continue below.
 - `GET /v1/flows/welcome-to-my-product` (with prod key) → id 555001, status DRAFT.
 - Confirmation: `About to publish flow 'welcome-to-my-product' in prod. Users matching the targeting rules will begin seeing it. Confirm? (y/n)`. User: `y`.
 - `PUT /v1/flows/555001/activate` with `{"archiveBehavior": "EXIT_EXISTING_USERS"}`. → 200.

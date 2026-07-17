@@ -79,11 +79,11 @@ Construct:
 ## Step 6 — Environment + confirmation gate
 
 - `dev`: `updateRules` is `safe` per `operations.md`; proceed.
-- `prod`: emit canonical prompt:
+- `prod`: `updateRules` is **`steer` → dangerous**. Editing a collection directly in prod is discouraged — emit the **prod steer** first (`operations.md` §"Prod is promote-only"): offer to add the flows to the collection in dev and promote it with `promote-collection-to-prod.md` (`syncRuleToProd`). Only if the user types the exact override `edit prod directly` do you fall through to the canonical prompt:
 
   > About to update collection '<collectionSlug>' in prod (adding <N> flows). Confirm? (y/n)
 
-  Anything other than `y`/`yes` aborts without issuing the mutation.
+  Anything other than `y`/`yes` aborts without issuing the mutation. (Note: the flows being added must already exist in prod — via prior promotion — for the prod collection to reference them.)
 
 ## Step 7 — Issue the bulk update
 

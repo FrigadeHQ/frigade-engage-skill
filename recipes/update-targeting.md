@@ -19,7 +19,7 @@ See `reference/operations.md` §"Flow operations" → `updateFlow` row (same row
 - Auth: `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `_PROD` for prod).
 
 ## Confirmation
-Safety tag: **safe** in dev, **dangerous** in prod. Canonical prod prompt: `"About to update flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"`. In prod, flag additionally: "Changing targeting may change who sees this flow on next session." (informational, not an extra prompt.)
+Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Editing targeting directly in prod is discouraged — emit the **prod steer** first (`operations.md` §"Prod is promote-only") and require the typed override `edit prod directly` before the change. Only after the override, fall through to the canonical prod prompt: `"About to update flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"`. In prod, flag additionally: "Changing targeting may change who sees this flow on next session." (informational, not an extra prompt.)
 
 ## Pre-conditions
 - `first-run-setup.md` Section 1 state-check passed.
@@ -31,7 +31,7 @@ Safety tag: **safe** in dev, **dangerous** in prod. Canonical prod prompt: `"Abo
 1. Parse: `slug`, the new targeting expression (or "clear targeting"), `environment`.
 2. `GET /v1/flows/<slug>` → extract numeric `id`, current `targetingLogic`.
 3. Build the new DSL string. Validate client-side (parenthesis balance, quote balance). If invalid, halt with the specific syntax issue called out.
-4. **Prod confirmation gate** if `environment == "prod"`. Include current targeting and proposed new targeting in the confirmation body so the user can eyeball both.
+4. **Prod steer + confirmation gate** if `environment == "prod"`: emit the prod steer first; on the typed override `edit prod directly`, fall through to the confirmation — include current targeting and proposed new targeting in the confirmation body so the user can eyeball both. Absent the override, redirect to changing targeting in dev + `promote-to-prod.md`.
 5. `PUT /v1/flows/<id>` with body `{ "targetingLogic": "<new DSL>" }` (or `""` to clear). Response handling: a `400 { message: "Unbalanced parens in targetingLogic" }` means the server's sanity check rejected the DSL — surface it.
 6. Re-fetch and verify the new `targetingLogic` round-tripped (server may normalize whitespace / quotes).
 7. Report success; log `update-targeting:success` with slug, id, env, old/new targeting SHAs.

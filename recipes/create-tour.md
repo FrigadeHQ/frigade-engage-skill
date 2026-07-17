@@ -12,7 +12,7 @@ Companion refs:
 - `reference/rest-endpoints.md` — `POST /v1/flows` contract.
 - `reference/next-app-router.md` §"Mounting flows" — page-specific tour example (split `'use client'` component under `app/<route>/page.tsx`).
 - `reference/next-pages-router.md` §"Mounting flows" — tour mount template for Pages Router.
-- `reference/operations.md` — `createFlow` safety row (dev: safe; prod: dangerous) + canonical prod confirmation template.
+- `reference/operations.md` — `createFlow` safety row (dev: safe; prod: `steer` → dangerous) + the prod steer / confirmation template.
 - `reference/errors.md` — REST failure handling (§401/403/404/409/422/429/5xx) + "Reporting partial failures" template.
 - `recipes/link-flows.md` (Task 18) — wire an Announcement's "Take a tour" CTA to call `tour?.restart()` on the tour authored by this recipe.
 
@@ -264,11 +264,11 @@ Same rule as `recipes/create-announcement.md` Step 2: run a local YAML parse san
 
 Identical to `recipes/create-announcement.md` Step 3, with **one change**: `type: TOUR` instead of `type: ANNOUNCEMENT`.
 
-**Prod confirmation gate.** If `environment == "prod"`, per the `operations.md` `createFlow` safety row, emit the canonical prompt:
+**Prod steer + confirmation gate.** If `environment == "prod"`, per the `operations.md` `createFlow` safety row (**`steer` → dangerous** in prod): creating a tour directly in prod is discouraged. Emit the **prod steer** first (`operations.md` §"Prod is promote-only") — offer to create the tour in dev and promote it (`promote-to-prod.md`). Only if the user types the exact override `edit prod directly` do you fall through to the canonical prompt:
 
 > About to create flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)
 
-(Dev skips this — `createFlow` is `safe` in dev per `operations.md`.)
+(Dev skips both the steer and this — `createFlow` is `safe` in dev per `operations.md`.)
 
 **Curl template:**
 

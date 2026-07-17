@@ -8,7 +8,7 @@ Companion refs:
 - `reference/rest-endpoints.md` — `POST /v1/flows` contract; `GET /v1/flows/:id` slug existence check; `POST /v1/cdnUpload` for uploads.
 - `reference/sdk-react.md` — `<Frigade.Announcement>` component props and `<Frigade.Provider>` surface.
 - `reference/next-app-router.md` / `reference/next-pages-router.md` — framework adapters with ready-to-paste snippets.
-- `reference/operations.md` — `createFlow` safety row (dev: safe; prod: dangerous) and canonical confirmation prompt templates.
+- `reference/operations.md` — `createFlow` safety row (dev: safe; prod: `steer` → dangerous) and the prod steer / confirmation prompt templates.
 - `reference/errors.md` — REST failure handling (§401/403/404/409/422/429/5xx) and composite-failure reporting.
 
 ---
@@ -126,11 +126,11 @@ steps:
 
 **Endpoint:** `POST /v1/flows` (per `rest-endpoints.md` §"POST /v1/flows/").
 
-**Prod confirmation gate.** If `environment == "prod"`, per the `operations.md` `createFlow` row (`safe` in dev, `dangerous` in prod), emit the canonical confirmation:
+**Prod steer + confirmation gate.** If `environment == "prod"`, per the `operations.md` `createFlow` row (`safe` in dev, **`steer` → dangerous** in prod): creating a flow directly in prod is discouraged. Emit the **prod steer** first (`operations.md` §"Prod is promote-only") — offer to create the flow in dev and promote it (`promote-to-prod.md`), which is almost always what's wanted for a brand-new flow. Only if the user types the exact override `edit prod directly` do you fall through to the canonical confirmation:
 
 > About to create flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)
 
-Wait for an explicit `y`/`yes`. Anything else aborts with no side effects. Dev skips this.
+Wait for an explicit `y`/`yes`. Anything else aborts with no side effects. Dev skips both the steer and this confirmation.
 
 **Auth header:** `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `$FRIGADE_API_KEY_SECRET_PROD` when `environment == "prod"`). Per `first-run-setup.md` Section 5, the Section-5 helper picks the right env var.
 
