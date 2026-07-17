@@ -21,7 +21,7 @@ See `reference/operations.md` §"Flow operations" → `createFlow` row.
 - Auth: `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `_PROD` for prod).
 
 ## Confirmation
-Safety tag: **safe** in dev, **dangerous** in prod. Canonical prod prompt: `"About to create flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"`.
+Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow directly in prod is discouraged — emit the **prod steer** first (`operations.md` §"Prod is promote-only"): offer to create it in dev and promote it (`promote-to-prod.md`). Only if the user types the exact override `edit prod directly` do you fall through to the canonical prod prompt: `"About to create flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"`.
 
 ## Pre-conditions
 - `first-run-setup.md` Section 1 state-check passed.

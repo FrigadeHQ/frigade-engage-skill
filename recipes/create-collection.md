@@ -7,7 +7,7 @@ Note on naming: collections are called `Rule` in GraphQL; customer-facing langua
 Companion refs:
 - `recipes/first-run-setup.md` — pre-condition state check.
 - `reference/graphql-schema.md` §`createRule` — mutation signature and `ExternalizedRule` response shape.
-- `reference/operations.md` — `createRule` safety row (dev: safe; prod: dangerous) and canonical confirmation prompt templates.
+- `reference/operations.md` — `createRule` safety row (dev: safe; prod: `steer` → dangerous) and the prod steer / confirmation prompt templates.
 - `reference/sdk-react.md` §`<Frigade.Collection>` — component props and `<Frigade.Provider>` surface.
 - `reference/next-app-router.md` / `reference/next-pages-router.md` — framework adapters with ready-to-paste snippets.
 - `reference/errors.md` — GraphQL/REST failure handling and composite-failure reporting.
@@ -41,11 +41,11 @@ Parse the triggering prompt. Fill these inputs, asking only for what's missing:
 
 ## Step 2 — Environment + confirmation gate
 
-**Prod confirmation gate.** If `environment == "prod"`, per the `operations.md` `createRule` row (`safe` in dev, `dangerous` in prod), emit the canonical confirmation (verbatim from `operations.md` §"Collection create / update in prod"):
+**Prod steer + confirmation gate.** If `environment == "prod"`, per the `operations.md` `createRule` row (`safe` in dev, **`steer` → dangerous** in prod): creating a collection directly in prod is discouraged. Emit the **prod steer** first (`operations.md` §"Prod is promote-only") — offer to create the collection in dev and promote it with `promote-collection-to-prod.md` (`syncRuleToProd`). Only if the user types the exact override `edit prod directly` do you fall through to the canonical confirmation (verbatim from `operations.md` §"Collection create / update in prod"):
 
 > About to create collection '<name>' in prod. Confirm? (y/n)
 
-Wait for an explicit `y`/`yes`. Anything else aborts with no side effects. Dev skips this prompt — `createRule` is marked `safe` in dev per `operations.md`.
+Wait for an explicit `y`/`yes`. Anything else aborts with no side effects. Dev skips both the steer and this prompt — `createRule` is marked `safe` in dev per `operations.md`.
 
 **Auth header selection.** `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (dev) or `Authorization: Bearer $FRIGADE_API_KEY_SECRET_PROD` (prod). The `first-run-setup.md` Section 5 helper picks the right env var.
 

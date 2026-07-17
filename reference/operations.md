@@ -8,17 +8,64 @@ Companion refs: `graphql-schema.md` (full GraphQL surface), `rest-endpoints.md` 
 
 - **Dev = open.** Almost every op is `safe` in dev, including writes that would be `dangerous` in prod (create/update/publish flow, collection CRUD, webhook/integration CRUD). The exceptions are ops that are destructive *regardless of environment* — user delete, user reset, user-group delete, remove-from-group, collection delete — those are `dangerous` in both.
 - **Prod = two-tier.** Reads are `safe`. Anything that (a) writes to prod state, (b) is destructive, or (c) crosses environments (dev→prod promotion) is `dangerous`. The skill MUST emit a confirmation prompt and wait for `y`/`yes` before running.
+- **Prod is promote-only for flow & collection content.** On top of the `dangerous` gate, direct prod *authoring* ops (create/update/publish/deactivate a flow, create/update a collection — the ops flagged `steer` in the tables below) are **discouraged**. The sanctioned way to change prod is to edit in dev and promote. Before running one of these, the skill emits the **prod steer** (see §"Prod is promote-only" below) and requires the typed override `edit prod directly` — not merely `y`/`yes`. The promotion ops themselves (`promoteFlow`, `syncRuleToProd`) are the sanctioned path and are **not** steered.
 - **No `forbidden` class in v1.** If a composite operation feels too risky for a single confirmation, it decomposes into multiple `dangerous` confirmations rather than being outright disallowed.
 
 Environment is determined by which private API key the skill is using for the call — each key is bound to a single Organization record (dev or prod). There is no per-request `environment` argument; the binding is implicit.
+
+## Prod is promote-only
+
+**Principle:** you build in dev and ship to prod by promoting. Editing a prod flow or collection directly bypasses that workflow, drifts prod out of sync with dev, and skips the review that promotion provides. The skill therefore does not treat direct prod authoring as a routine confirm-and-go op — it actively steers the user back to the promote path.
+
+### Which ops are steered (direct prod authoring of flows & collections)
+
+The `Prod` column reads `steer` for these — a stronger gate than plain `dangerous`:
+
+- `createFlow` (prod) — a first-time flow should be created in dev, then promoted.
+- `updateFlow` (prod) — content edits belong in dev, then promoted (Overwrite path).
+- `createFlowVersion` (prod) — new drafts belong in dev.
+- `activateFlow` (prod) — publishing prod content is what promotion does.
+- `deactivateFlow` (prod) — deactivating a dev flow and promoting propagates the change; direct prod deactivation is the exception path.
+- `createRule` / `updateRules` (prod) — collections are authored in dev and promoted via `syncRuleToProd`.
+
+### Which prod ops are NOT steered
+
+- **Reads** — always `safe`, no gate at all.
+- **The promotion ops** — `promoteFlow` and `syncRuleToProd` ARE the sanctioned prod-write path. They keep the normal dev→prod `dangerous` confirmation (see the promotion templates below); no steer.
+- **Destructive deletes/resets** (`deleteFlow`, `deleteRule`, `deleteUser`, `resetUserFlowState`, `deleteUserGroup`, webhook/integration deletes, etc.) — these are `dangerous` in both envs and there is no "promote a deletion" concept, so they keep their existing destructive confirmation rather than a promote-steer.
+- **Webhook / integration / user-group / user writes in prod** — configuration and data-plane ops, not flow/collection *content*. They keep the normal `dangerous` confirmation; they are not part of the dev→promote content model.
+
+### The steer prompt (canonical)
+
+When a steered op resolves to a prod target, emit this **instead of** the plain `dangerous` confirmation, before any side effect:
+
+```
+Heads up — editing <flows|collections> directly in prod is discouraged.
+The recommended path is to make this change to '<slug/name>' in dev and
+promote it (recipes/promote-to-prod.md — or promote-collection-to-prod.md
+for collections). That keeps dev and prod in sync and reviewable.
+
+Would you like me to make the change in dev and promote it instead?
+If you genuinely need to edit prod directly, type exactly:  edit prod directly
+```
+
+Handling the response:
+- **User accepts the dev→promote path** (the default, e.g. "yes", "do it in dev", "promote") → run the change in dev, then hand off to the relevant promotion recipe (which emits its own dev→prod promotion confirmation).
+- **User types exactly `edit prod directly`** → override accepted. Fall through to the op's normal prod `dangerous` confirmation (`"About to <verb> <target> in prod. …"`) and proceed on `y`/`yes` from there. Log an `override:edit-prod-directly` event.
+- **Anything else** → treat as decline; make no changes.
+
+`y`/`yes` alone never satisfies the steer — the literal phrase `edit prod directly` is required so the override is always deliberate. Batch rule still applies: one steer per batch, not per flow.
 
 ## How Claude uses this table
 
 For every write operation in a recipe:
 1. Look up the operation by name in the table below.
 2. Resolve the column for the target environment (`dev` or `prod`) — determined by which private key is being used for this call.
-3. If `safe` → proceed. If `dangerous` → emit the canonical confirmation prompt and wait for explicit `y`/`yes`. Anything else aborts, no partial state.
-4. If `n/a` → the op does not apply in that environment; return a clear error rather than attempting it.
+3. Act on the tag:
+   - `safe` → proceed.
+   - `steer` → emit the **prod steer** first (§"Prod is promote-only"). If the user takes the dev→promote path, run it in dev and hand off to the promotion recipe. Only if the user types the exact override `edit prod directly` do you fall through to the `dangerous` confirmation below. Anything else aborts.
+   - `dangerous` → emit the canonical confirmation prompt and wait for explicit `y`/`yes`. Anything else aborts, no partial state.
+   - `n/a` → the op does not apply in that environment; return a clear error rather than attempting it.
 
 Confirmation template (canonical):
 
@@ -33,6 +80,7 @@ Confirmation template (canonical):
 Legend:
 - `safe` — run immediately, no confirmation.
 - `dangerous` — emit canonical confirmation prompt, wait for `y`/`yes`.
+- `steer` → dangerous — direct prod authoring of a flow/collection: emit the **prod steer** first (§"Prod is promote-only"), require the typed override `edit prod directly`, then fall through to the `dangerous` confirmation. Prod column only.
 - `n/a` — operation doesn't apply in this environment.
 
 Column "Surface" is `REST` or `GraphQL`; "Op" gives the HTTP path or GraphQL field name.
@@ -47,11 +95,11 @@ Column "Surface" is `REST` or `GraphQL`; "Op" gives the HTTP path or GraphQL fie
 | getFlow (public-ok) | REST | GET /v1/public/flows/:slug | safe | safe | rest-endpoints.md |
 | getFlow (GraphQL) | GraphQL | query `flow(id: Float!)` | safe | safe | graphql-schema.md |
 | listFlowVersions | REST | GET /v1/flows/:slug/versions | safe | safe | rest-endpoints.md |
-| createFlow | REST | POST /v1/flows | safe | **dangerous** | rest-endpoints.md |
-| updateFlow | REST | PUT /v1/flows/:numericFlowId | safe | **dangerous** | rest-endpoints.md |
-| createFlowVersion (duplicate / new draft) | REST | POST /v1/flows/:id/versions | safe | **dangerous** | rest-endpoints.md |
-| activateFlow (publish draft) | REST | PUT /v1/flows/:id/activate | safe | **dangerous** | rest-endpoints.md |
-| deactivateFlow (set `active:false`) | REST | PUT /v1/flows/:numericFlowId `{active:false}` | safe | **dangerous** | rest-endpoints.md |
+| createFlow | REST | POST /v1/flows | safe | **steer** → dangerous | rest-endpoints.md — steered: create in dev + promote |
+| updateFlow | REST | PUT /v1/flows/:numericFlowId | safe | **steer** → dangerous | rest-endpoints.md — steered: edit in dev + promote |
+| createFlowVersion (duplicate / new draft) | REST | POST /v1/flows/:id/versions | safe | **steer** → dangerous | rest-endpoints.md — steered: draft in dev + promote |
+| activateFlow (publish draft) | REST | PUT /v1/flows/:id/activate | safe | **steer** → dangerous | rest-endpoints.md — steered: promotion publishes prod content |
+| deactivateFlow (set `active:false`) | REST | PUT /v1/flows/:numericFlowId `{active:false}` | safe | **steer** → dangerous | rest-endpoints.md — steered: deactivate in dev + promote |
 | deleteFlow | REST | DELETE /v1/flows/:numericFlowId | **dangerous** | **dangerous** | rest-endpoints.md — destructive regardless of env |
 | promoteFlow (dev → prod) | composite | see `recipes/promote-to-prod.md` | n/a | **dangerous** | rest-endpoints.md — multi-call orchestration; prod-only direction |
 
@@ -105,8 +153,8 @@ The `Rule` GraphQL entity is surfaced to users as "collection" — operation nam
 | Operation | Surface | Op | Dev | Prod | Reference |
 |---|---|---|---|---|---|
 | rules (list collections) | GraphQL | query `rules(...)` | safe | safe | graphql-schema.md — read-only listing |
-| createRule | GraphQL | mutation `createRule(...)` | safe | **dangerous** | graphql-schema.md — creates a collection |
-| updateRules (bulk) | GraphQL | mutation `updateRules(rules: [...])` | safe | **dangerous** | graphql-schema.md — bulk update; flows are associated via the `flowIds` arg, not a separate endpoint |
+| createRule | GraphQL | mutation `createRule(...)` | safe | **steer** → dangerous | graphql-schema.md — creates a collection; steered: create in dev + `syncRuleToProd` |
+| updateRules (bulk) | GraphQL | mutation `updateRules(rules: [...])` | safe | **steer** → dangerous | graphql-schema.md — bulk update; steered: edit in dev + `syncRuleToProd`. Flows associated via the `flowIds` arg |
 | deleteRule | GraphQL | mutation `deleteRule(id: Float!)` | **dangerous** | **dangerous** | graphql-schema.md — destructive regardless of env; deletes a collection |
 | syncRuleToProd | GraphQL | mutation `syncRuleToProd(ruleId: Float!)` | n/a | **dangerous** | graphql-schema.md — promotes a collection from dev to prod; prod-only direction (only meaningful when caller is a prod key with a dev sibling) |
 

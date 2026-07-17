@@ -347,9 +347,23 @@ If target is `prod` but `FRIGADE_API_KEY_SECRET_PROD` is absent from `.env.local
 - **Yes** → prompt for prod public and prod private (same mask-on-accept pattern as 2.3). Verify via `GET /v1/apiKeys` (expect a different `organizationId` than dev). Append to `.env.local`. Update `.frigade/project.json`'s `prodWorkspaceId` field. Resume the operation.
 - **No** → halt the current operation with "Prod keys required; no changes made." Return to caller without running anything else.
 
-### Step 5.4 — Prod confirmation wrapper
+### Step 5.4 — Prod steer for direct authoring
 
-Picking the prod key pair is necessary but not sufficient to run a dangerous prod op — the recipe executing the op is still responsible for emitting the canonical confirmation prompt before side effects (see `reference/operations.md`). This recipe only sets up the auth; the `dangerous` gate lives in the op-specific recipe.
+Before a prod key is ever used to *author* a flow or collection (create / update / publish / deactivate a flow; create / update a collection), check whether this is direct prod authoring — i.e. the op is tagged `steer` in `reference/operations.md` and the user did **not** arrive here via a promotion recipe (`promote-to-prod.md` / `promote-collection-to-prod.md`).
+
+If it is direct prod authoring, do **not** fall straight to the confirmation. Emit the **prod steer** from `reference/operations.md` §"Prod is promote-only":
+
+> Heads up — editing <flows|collections> directly in prod is discouraged. The recommended path is to make this change to '<slug/name>' in dev and promote it. Would you like me to do that instead? If you genuinely need to edit prod directly, type exactly: `edit prod directly`
+
+- **User accepts the dev→promote path** (default) → redirect: run the authoring op against the **dev** key instead, then invoke the matching promotion recipe. The prod key is not used for the authoring write at all.
+- **User types exactly `edit prod directly`** → override accepted; continue to Step 5.5. Log an `override:edit-prod-directly` event to `.frigade/skill.log`.
+- **Anything else** → decline; make no changes and return to caller.
+
+Promotion recipes are exempt — they are the sanctioned prod-write path and skip straight to Step 5.5.
+
+### Step 5.5 — Prod confirmation wrapper
+
+Picking the prod key pair (and, for `steer` ops, clearing Step 5.4's override) is necessary but not sufficient to run a dangerous prod op — the recipe executing the op is still responsible for emitting the canonical confirmation prompt before side effects (see `reference/operations.md`). This recipe only sets up the auth and the steer; the `dangerous` gate lives in the op-specific recipe.
 
 ---
 

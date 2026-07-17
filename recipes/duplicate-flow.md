@@ -18,7 +18,7 @@ See `reference/operations.md` §"Flow operations".
 - Auth: `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `_PROD` for prod).
 
 ## Confirmation
-Safety tag: **safe** in dev, **dangerous** in prod (both variants — same row as `createFlow` / `createFlowVersion` in `operations.md`). Canonical prod prompt: `"About to create flow '<new-slug>' in prod. This affects live flow state. Confirm? (y/n)"` (Variant A) or the generic `"About to <verb> <target> in <env>. Confirm? (y/n)"` for Variant B (new draft version in prod).
+Safety tag: **safe** in dev, **`steer` → dangerous** in prod (both variants — same rows as `createFlow` / `createFlowVersion` in `operations.md`). Duplicating a flow directly in prod is discouraged — emit the **prod steer** first (`operations.md` §"Prod is promote-only"): offer to duplicate in dev and promote (`promote-to-prod.md`). Only if the user types the exact override `edit prod directly` do you fall through to the canonical prod prompt: `"About to create flow '<new-slug>' in prod. This affects live flow state. Confirm? (y/n)"` (Variant A) or the generic `"About to <verb> <target> in <env>. Confirm? (y/n)"` for Variant B (new draft version in prod).
 
 ## Pre-conditions
 - `first-run-setup.md` Section 1 state-check passed.

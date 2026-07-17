@@ -13,14 +13,14 @@ Two distinct jobs folded into one stub:
 ## API op
 See `reference/operations.md` §"Flow operations".
 - List versions: `listFlowVersions` → `GET /v1/flows/:slug/versions` (see `rest-endpoints.md` §"GET /v1/flows/:id/versions"). Safe in both envs.
-- Restore (overwrite-path): `updateFlow` → `PUT /v1/flows/:numericFlowId`. Safe dev / dangerous prod.
-- Restore (new-draft-path): `createFlowVersion` + `updateFlow` + `activateFlow`. Same safety tags.
+- Restore (overwrite-path): `updateFlow` → `PUT /v1/flows/:numericFlowId`. Safe dev / `steer` → dangerous prod.
+- Restore (new-draft-path): `createFlowVersion` + `updateFlow` + `activateFlow`. Same safety tags (all `steer` → dangerous in prod).
 - Auth: `Authorization: Bearer $FRIGADE_API_KEY_SECRET` (or `_PROD` for prod).
 
 ## Confirmation
 Safety tag:
 - List versions: **safe** in both envs. No confirmation.
-- Restore (either path): **safe** in dev, **dangerous** in prod. Canonical prompt: `"About to update flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"` (per `operations.md` §"Flow create / update in prod").
+- Restore (either path): **safe** in dev, **`steer` → dangerous** in prod. Restoring a prior version directly in prod is discouraged — emit the **prod steer** first (`operations.md` §"Prod is promote-only"): offer to restore the version in dev and promote it (`promote-to-prod.md`). Only if the user types the exact override `edit prod directly` do you fall through to the canonical prompt: `"About to update flow '<slug>' in prod. This affects live flow state. Confirm? (y/n)"` (per `operations.md` §"Flow create / update in prod").
 
 ## Pre-conditions
 - `first-run-setup.md` Section 1 state-check passed.
