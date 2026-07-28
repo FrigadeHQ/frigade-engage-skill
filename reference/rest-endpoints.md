@@ -89,7 +89,7 @@
 - Body (`CreateFlowDto`):
   ```ts
   {
-    slug?: string,               // optional; if not set or malformed, one is generated as `flow_<nanoid8>`
+    slug?: string,               // DO NOT SEND from the skill. Server-generated as `flow_<nanoid8>`. A supplied slug is honored ONLY if it already starts with `flow_` (used by promotion / duplication to preserve an existing slug); anything else is ignored and a fresh `flow_<nanoid8>` is generated.
     name: string,
     data: string,                // YAML-encoded flow steps; JSON strings also accepted (converted server-side)
     codeSnippet?: string,        // optional JSX/HTML snippet for the copy-paste UI

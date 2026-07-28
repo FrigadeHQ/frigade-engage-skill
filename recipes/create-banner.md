@@ -30,7 +30,7 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 
 ## Minimal flow
 
-1. Parse inputs: banner `title`, `subtitle`, optional `primaryButton` / `secondaryButton`, optional `placement: "top" | "bottom"` (used to decide mount site). Derive `slug`; collision-check.
+1. Parse inputs: banner `title`, `subtitle`, optional `primaryButton` / `secondaryButton`, optional `placement: "top" | "bottom"` (used to decide mount site). Do not set a slug -- Frigade generates it on create; capture the returned `flow_...` slug from the response and use it for wiring.
 2. Build YAML per `yaml-spec.md` §BANNER (Example 1 is the dashboard default; Example 2 is the live demo banner chained after a tour via `targetingLogic`). Typically a single step.
 3. Lint YAML locally, then `POST /v1/flows/` with `type: BANNER`.
 4. Framework-detect + install `@frigade/react` (inherit).
@@ -44,10 +44,10 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 User: "Add a top-of-page banner announcing our new enterprise plan — 'Enterprise is live!' with a 'Learn more' CTA that opens /enterprise in the current tab."
 
 Claude's actions (abbreviated):
-- Parse title `"Enterprise is live!"`, CTA title `"Learn more"` → slug `enterprise-is-live`, single-step banner.
+- Parse title `"Enterprise is live!"`, CTA title `"Learn more"`; single-step banner. (Frigade assigns the slug on create — e.g. `flow_bnr21gh4`; no slug is sent.)
 - Build YAML with 1 step: `{id, title, subtitle, primaryButton: { title: "Learn more", action: false, uri: "/enterprise", target: _self }}`.
 - POST /v1/flows with `type: BANNER`.
-- Install, wire provider, mount `<Frigade.Banner flowId="enterprise-is-live" />` at the top of `app/layout.tsx` body.
+- Install, wire provider, mount `<Frigade.Banner flowId="flow_bnr21gh4" />` at the top of `app/layout.tsx` body.
 - Report.
 
 ## TODO (Phase 1)

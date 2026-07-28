@@ -29,7 +29,7 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 
 ## Minimal flow
 
-1. Parse inputs: survey `name`, a list of questions → `steps[]` with `fields[]` per step (each field: `id`, `type`, `label`, `required?`, `options?`). Derive `slug`; collision-check.
+1. Parse inputs: survey `name`, a list of questions → `steps[]` with `fields[]` per step (each field: `id`, `type`, `label`, `required?`, `options?`). Do not set a slug -- Frigade generates it on create; capture the returned `flow_...` slug from the response and use it for wiring.
 2. Build YAML per `yaml-spec.md` §FORM (structurally identical to FORM). Common pattern:
    ```yaml
    props:
@@ -59,7 +59,7 @@ Claude's actions (abbreviated):
 - Parse 3 questions → 3-step survey with mixed `radio` / `textarea` / `radio` fields.
 - Build YAML per `yaml-spec.md` §FORM with `type: SURVEY` on the wire-level record.
 - POST /v1/flows.
-- Install, wire provider, mount `<Frigade.Form flowId="post-tour-feedback" as={Frigade.Dialog} dismissible />` in app shell.
+- Install, wire provider, mount `<Frigade.Form flowId="flow_srv45cd6" as={Frigade.Dialog} dismissible />` in app shell.
 - Report.
 
 ## TODO (Phase 1)

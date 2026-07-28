@@ -7,7 +7,7 @@ User asks to duplicate an existing flow — either to iterate on a variant (A/B 
 
 ## Pattern
 Follows the same shape as `promote-to-prod.md` for multi-call orchestration, but single-env (stays in dev or stays in prod). Two distinct "duplicate" meanings, each with its own endpoint:
-- **Variant A — new flow with a new slug** (logical copy). Fetch source with `GET /v1/flows/<slug>`; `POST /v1/flows/` with a new `slug`, copying `name`, `type`, `data`, `targetingLogic`, `codeSnippet`. Pattern from `promote-to-prod.md` §4.1 CREATE-path but against the same env.
+- **Variant A — new flow** (logical copy). Fetch source with `GET /v1/flows/<slug>`; `POST /v1/flows/` copying `name`, `type`, `data`, `targetingLogic`, `codeSnippet` — **without** an invented `slug` (Frigade assigns a fresh `flow_<nanoid8>`). Pattern from `promote-to-prod.md` §4.1 CREATE-path but against the same env (promotion is the one case that *does* pass the existing slug, to preserve pairing; a duplicate does not).
 - **Variant B — new draft version of same slug** (versioning copy). `POST /v1/flows/<numericFlowId>/versions` — returns a new `DRAFT` row with incremented version, same slug. Pattern from `promote-to-prod.md` §4.2b "Create new draft" variant.
 Ask the user which they mean if the prompt is ambiguous. "Copy to a new slug" → Variant A. "New draft version" / "new draft to edit" → Variant B.
 
@@ -27,14 +27,14 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod (both variants �
 
 ## Minimal flow
 
-**Variant A — new flow, new slug:**
+**Variant A — new flow (Frigade-assigned slug):**
 
 1. Ask or infer which variant the user wants.
 2. `GET /v1/flows/<source-slug>` with dev key → capture `name`, `type`, `data`, `targetingLogic`, `codeSnippet`, `description`.
-3. Derive new `slug` (user-supplied or append `-copy`, `-copy-2`, etc. after collision check). Collision-check with another `GET /v1/flows/<new-slug>`.
-4. Confirmation if env is prod.
-5. `POST /v1/flows/` with the new slug + copied body. Default `active: false` (let the user activate when ready).
-6. Report new slug + dashboard URL; log `duplicate-flow:variant-a:success`.
+3. **Do not derive a human slug and do not collision-check.** Unlike a same-slug promotion, a duplicate is a *new* flow, so let Frigade assign a fresh `flow_<nanoid8>` slug — omit `slug` from the create body. (A `slug` field may still be *passed through* — e.g. a caller-supplied value — but the backend only honors it when it already starts with `flow_`; a human/custom slug is ignored and regenerated. So never rely on a custom slug persisting.) Give the copy a distinct `name` (e.g. append " (copy)" or the user's requested name) — the human label lives in `name`, not the slug.
+4. Confirmation if env is prod (prod steer applies — see safety section above).
+5. `POST /v1/flows/` with the copied body (no invented `slug`). Default `active: false` (let the user activate when ready).
+6. Read the server-assigned `slug` from the response; report it + the dashboard URL; log `duplicate-flow:variant-a:success`.
 
 **Variant B — new draft version:**
 
@@ -46,13 +46,13 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod (both variants �
 
 ## Example invocation
 
-User: "Duplicate `welcome-to-my-product` so I can try a different copy — name it `welcome-to-my-product-v2`."
+User: "Duplicate `flow_a1b2c3d4` so I can try a different copy — call it 'Welcome v2'."
 
 Claude's actions (abbreviated):
-- Interpret as Variant A (new slug). Confirm: `welcome-to-my-product-v2` is free via `GET`.
-- `GET /v1/flows/welcome-to-my-product` → body.
-- `POST /v1/flows/` with slug `welcome-to-my-product-v2`, same type/data/name, `active: false`.
-- Report new dashboard URL.
+- Interpret as Variant A (new flow). No slug to derive or check — Frigade will assign one.
+- `GET /v1/flows/flow_a1b2c3d4` → body.
+- `POST /v1/flows/` with `name: "Welcome v2"`, same type/data, no `slug` field, `active: false`.
+- Response returns the new flow with a server-assigned slug (e.g. `flow_v2x9y8z7`); report that + the new dashboard URL.
 
 ## TODO (Phase 1)
 - Write the fully-authored version.

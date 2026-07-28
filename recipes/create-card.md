@@ -30,7 +30,7 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 
 ## Minimal flow
 
-1. Parse inputs: card `title`, `subtitle`, optional buttons, **placement** (which page / component the card goes on). Derive `slug`; collision-check.
+1. Parse inputs: card `title`, `subtitle`, optional buttons, **placement** (which page / component the card goes on). Do not set a slug -- Frigade generates it on create; capture the returned `flow_...` slug from the response and use it for wiring.
 2. Build YAML per `yaml-spec.md` §CARD (Example 1 is the dashboard default — title + subtitle + single button; Example 2 shows a truly minimal card with no buttons at all).
 3. Lint YAML locally, then `POST /v1/flows/` with `type: CARD`.
 4. Framework-detect + install `@frigade/react`.
@@ -57,7 +57,7 @@ User: "Drop a card on the dashboard promoting the new AI feature — 'Try AI-pow
 
 Claude's actions (abbreviated):
 - Ask confirm: "Mount on `app/dashboard/page.tsx`?" (if unambiguous, skip the ask).
-- Parse title → slug `try-ai-powered-analytics`, single-step card with primary CTA.
+- Parse title; single-step card with primary CTA. (Frigade assigns the slug on create — e.g. `flow_crd33ij5`; no slug is sent.)
 - Build YAML per §CARD Example 1.
 - POST /v1/flows with `type: CARD`.
 - Install, wire provider, mount card tree in `app/dashboard/page.tsx`.

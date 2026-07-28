@@ -3,7 +3,7 @@
 **Status:** Phase-1 target. v1 dogfood uses pattern-match off `create-announcement.md` + `reference/operations.md` + `reference/rest-endpoints.md` + `reference/yaml-spec.md` §CHECKLIST.
 
 ## Intent
-User asks to create a checklist — an ordered (or unordered) list of completion-tracked tasks that persists across sessions. Typical phrasing: "build an onboarding checklist", "create a getting-started list of tasks", "add a 4-step setup checklist for new users". Classic product-onboarding primitive.
+User asks to create a checklist — an ordered (or unordered) list of completion-tracked tasks that persists across sessions. Typical phrasing: "build an onboarding checklist", "create a flow_gs01a2b3 list of tasks", "add a 4-step setup checklist for new users". Classic product-onboarding primitive.
 
 ## Pattern
 Follows the same shape as `create-announcement.md` (single-POST flow create + SDK mount). Deviations:
@@ -30,7 +30,7 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod (same as all `cre
 
 ## Minimal flow
 
-1. Parse inputs: checklist `title`, `subtitle`, `sequential?` flag, and a `steps[]` array (each with `id`, `title`, `subtitle`, optional `primaryButton`, optional `completionCriteria`). Derive `slug` from title; collision-check via `GET /v1/flows/<slug>`.
+1. Parse inputs: checklist `title`, `subtitle`, `sequential?` flag, and a `steps[]` array (each with `id`, `title`, `subtitle`, optional `primaryButton`, optional `completionCriteria`). Do not set a slug -- Frigade generates it on create; capture the returned `flow_...` slug from the response and use it for wiring.
 2. Build YAML per `yaml-spec.md` §CHECKLIST (Example 1 is the canonical dashboard template — 4 steps with `iconUri` for carousel; Example 2 shows `startCriteria` branching).
 3. Lint YAML locally, then `POST /v1/flows/` with `type: CHECKLIST`.
 4. Framework-detect and install `@frigade/react` (inherit Steps 4–5 from `create-announcement.md`).
@@ -44,10 +44,10 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod (same as all `cre
 User: "Build me a 4-step onboarding checklist — 'Getting started' — that walks new users through connecting their account, inviting a teammate, creating their first project, and reviewing the tutorial."
 
 Claude's actions (abbreviated):
-- Parse title `"Getting started"` → slug `getting-started`; 4 steps as described.
+- Parse title `"Getting started"`; 4 steps as described. (Frigade assigns the slug on create — e.g. `flow_gs01a2b3`; no slug is sent.)
 - Build YAML with root-level `title: "Getting started"` + 4 `steps[]` entries, each with `id`, `title`, `subtitle`, default `primaryButton: { title: "Mark complete" }`.
-- POST /v1/flows with `type: CHECKLIST`; extract new id + slug.
-- Install `@frigade/react`, wire provider, mount `<Frigade.Checklist.Collapsible flowId="getting-started" />` in app shell.
+- POST /v1/flows with `type: CHECKLIST` (no slug in the body); extract the new id + server-generated slug from the response.
+- Install `@frigade/react`, wire provider, mount `<Frigade.Checklist.Collapsible flowId="flow_gs01a2b3" />` in app shell.
 - Report.
 
 ## TODO (Phase 1)

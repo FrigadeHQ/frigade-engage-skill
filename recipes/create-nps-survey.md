@@ -29,7 +29,7 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 
 ## Minimal flow
 
-1. Parse inputs: NPS `question` ("how likely...?"), follow-up prompt ("why did you choose this rating?"), optional scale override (default 0-10 numeric; emoji or custom via `props.options`). Derive `slug`; collision-check.
+1. Parse inputs: NPS `question` ("how likely...?"), follow-up prompt ("why did you choose this rating?"), optional scale override (default 0-10 numeric; emoji or custom via `props.options`). Do not set a slug -- Frigade generates it on create; capture the returned `flow_...` slug from the response and use it for wiring.
 2. Build YAML per `yaml-spec.md` §NPS_SURVEY. Default template:
    ```yaml
    props:
@@ -63,10 +63,10 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 User: "Add an NPS survey after checkout — 'How likely are you to recommend us to a friend?' with a follow-up asking why."
 
 Claude's actions (abbreviated):
-- Parse question + follow-up → slug `checkout-nps-survey`.
+- Parse question + follow-up. (Frigade assigns the slug on create — e.g. `flow_nps12ab3`; no slug is sent.)
 - Build YAML per §NPS_SURVEY Example 1.
 - POST /v1/flows with `type: NPS_SURVEY`.
-- Install, wire provider, mount `<Frigade.Survey.NPS flowId="checkout-nps-survey" />` in the checkout route or post-checkout page.
+- Install, wire provider, mount `<Frigade.Survey.NPS flowId="flow_nps12ab3" />` in the checkout route or post-checkout page.
 - Report.
 
 ## TODO (Phase 1)

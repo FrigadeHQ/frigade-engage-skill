@@ -29,7 +29,7 @@ Safety tag: **safe** in dev, **`steer` → dangerous** in prod. Creating a flow 
 
 ## Minimal flow
 
-1. Parse inputs: form `name`, `steps[]` with `fields[]` per step (each field: `id`, `type`, `label`, `required?`, `pattern?`, `options?` for select/radio). Derive `slug`; collision-check.
+1. Parse inputs: form `name`, `steps[]` with `fields[]` per step (each field: `id`, `type`, `label`, `required?`, `pattern?`, `options?` for select/radio). Do not set a slug -- Frigade generates it on create; capture the returned `flow_...` slug from the response and use it for wiring.
 2. Build YAML per `yaml-spec.md` §FORM (Example 1 is the dashboard default multi-field form; Example 2 covers branching with `visibilityCriteria`).
 3. Lint YAML locally, then `POST /v1/flows/` with `type: FORM`.
 4. Framework-detect + install `@frigade/react` (inherit Steps 4–5 from `create-announcement.md`).
@@ -46,7 +46,7 @@ Claude's actions (abbreviated):
 - Parse 3 fields → single-step form with `fields: [{id: company-size, type: select, options: [...]}, {id: industry, type: select, ...}, {id: name, type: text, required: true}]`.
 - Build YAML per `yaml-spec.md` §FORM; default `primaryButton: { title: "Submit" }` on the step.
 - POST /v1/flows with `type: FORM`.
-- Install, wire provider, mount `<Frigade.Form flowId="qualification-form" />` in app shell.
+- Install, wire provider, mount `<Frigade.Form flowId="flow_frm78ef9" />` in app shell.
 - Report.
 
 ## TODO (Phase 1)
