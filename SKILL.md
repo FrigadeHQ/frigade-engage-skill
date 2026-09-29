@@ -1,6 +1,6 @@
 ---
 name: frigade-engage
-description: Build and manage Frigade Engage flows (announcements, tours, checklists, nudges, forms, banners, cards, NPS surveys) and collections directly from Claude Code, including end-to-end wiring into React/Next.js codebases. Use when the user mentions Frigade, onboarding flows, product tours, checklists, announcements, in-product guides, or flow collections (promoting, creating, or adding flows to a collection).
+description: Build and manage Frigade Engage flows (announcements, tours, checklists, nudges, forms, banners, cards, NPS surveys) and collections directly from your coding agent, including end-to-end wiring into React/Next.js codebases. Use when the user mentions Frigade, onboarding flows, product tours, checklists, announcements, in-product guides, or flow collections (promoting, creating, or adding flows to a collection).
 version: 0.0.1
 authored-against:
   backend-app: d245b4fd
@@ -12,9 +12,11 @@ authored-against:
 
 # frigade-engage
 
+> **Harness compatibility.** This is a generic skill — it runs on **Claude Code, Codex, and any other coding agent**. Claude Code loads it via this file's frontmatter; Codex and other agents load it via `AGENTS.md`. Before executing, read `reference/agent-harness.md` — it maps the Claude Code tool names used below (`Read`/`Write`/`Edit`/`Glob`/`Bash`) to your harness's equivalents and notes that **"Claude" throughout these docs means "you, the agent running this skill."**
+
 ## What this skill does
 
-`frigade-engage` lets you build onboarding flows for your product — announcements, tours, checklists, forms, surveys, banners, and cards — directly from Claude Code. It manipulates your Frigade workspace via the Frigade API (GraphQL + REST) and wires the `@frigade/react` SDK into your Next.js or React codebase end-to-end. Once your keys are set up, you never need to open the Frigade dashboard: Claude reads and writes flow definitions, targeting rules, YAML payloads, and the component calls that render flows in your app — all from one conversation.
+`frigade-engage` lets you build onboarding flows for your product — announcements, tours, checklists, forms, surveys, banners, and cards — directly from your coding agent (Claude Code, Codex, or any agent that can read these files). It manipulates your Frigade workspace via the Frigade API (GraphQL + REST) and wires the `@frigade/react` SDK into your Next.js or React codebase end-to-end. Once your keys are set up, you never need to open the Frigade dashboard: the agent reads and writes flow definitions, targeting rules, YAML payloads, and the component calls that render flows in your app — all from one conversation.
 
 ## Critical pre-flight: always run first-run-setup
 
@@ -70,6 +72,7 @@ The authoritative list of operation names, their verbs, their targets, their `da
 
 | For questions about… | Read |
 |---|---|
+| Running this skill on Codex / another harness (tool mapping, terminology) | `reference/agent-harness.md` |
 | Which ops exist, their verb/target, their safety tag | `reference/operations.md` |
 | GraphQL queries and mutations (shapes, arguments, responses) | `reference/graphql-schema.md` |
 | REST endpoints (URLs, headers, bodies, auth) | `reference/rest-endpoints.md` |
